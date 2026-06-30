@@ -23,10 +23,12 @@ const AI={
   claude:"https://claude.ai/new?q=",
   gemini:"https://gemini.google.com/app?q=",
   perplexity:"https://www.perplexity.ai/search?q=",
-  grok:"https://x.com/i/grok?q=",
+  grok:"https://grok.com/?q=",
   deepseek:"https://chat.deepseek.com/?q="
 };
 const AI_L={chatgpt:"ChatGPT",claude:"Claude",gemini:"Gemini",perplexity:"Perplexity",grok:"Grok",deepseek:"DeepSeek"};
+/* Providers that auto-submit (show results on load) vs prefill-input only */
+const AI_AUTO=new Set(["perplexity","gemini","grok"]);
 
 /* ── AI-Free search — appends params that opt out of AI overviews ── */
 const AI_FREE_PARAMS={
@@ -293,9 +295,16 @@ function toggleAIFree(){
 }
 function updatePlaceholder(){
   const i=document.getElementById("searchInput");
-  i.placeholder=state.searchMode==="ai"
-    ? `Ask ${AI_L[state.aiProvider]||"AI"} anything...`
-    : `Search${state.aiFreeOn?" (AI-free)":""}${state.searchType!=="all"?" — "+TYPE_L[state.searchType]:""}...`;
+  const hint=document.getElementById("aiModeHint");
+  if(state.searchMode==="ai"){
+    const ap=state.aiProvider;const auto=AI_AUTO.has(ap);
+    i.placeholder=`Ask ${AI_L[ap]||"AI"} anything...`;
+    hint.textContent=auto?"Opens directly to your query results":"Prefills the input — press Enter to send";
+    hint.style.display="";
+  }else{
+    i.placeholder=`Search${state.aiFreeOn?" (AI-free)":""}${state.searchType!=="all"?" — "+TYPE_L[state.searchType]:""}...`;
+    hint.style.display="none";
+  }
 }
 function submitSearch(q){
   if(!q)return;

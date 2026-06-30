@@ -36,14 +36,16 @@
       </form>
 
       <!-- AI provider chips (visible in AI mode) -->
+      <!-- → auto-submit (opens to results), ✎ prefill-only (press Enter) -->
       <div class="ai-chips" id="aiChips">
-        <button type="button" class="ai-chip active" data-ai="chatgpt">ChatGPT</button>
-        <button type="button" class="ai-chip" data-ai="claude">Claude</button>
-        <button type="button" class="ai-chip" data-ai="gemini">Gemini</button>
-        <button type="button" class="ai-chip" data-ai="perplexity">Perplexity</button>
-        <button type="button" class="ai-chip" data-ai="grok">Grok</button>
-        <button type="button" class="ai-chip" data-ai="deepseek">DeepSeek</button>
+        <button type="button" class="ai-chip active" data-ai="chatgpt">ChatGPT ✎</button>
+        <button type="button" class="ai-chip" data-ai="claude">Claude ✎</button>
+        <button type="button" class="ai-chip" data-ai="gemini">Gemini →</button>
+        <button type="button" class="ai-chip" data-ai="perplexity">Perplexity →</button>
+        <button type="button" class="ai-chip" data-ai="grok">Grok →</button>
+        <button type="button" class="ai-chip" data-ai="deepseek">DeepSeek ✎</button>
       </div>
+      <p class="ai-hint" id="aiModeHint"></p>
 
       <!-- Type filter chips + AI-free toggle (visible in Web mode) -->
       <div class="type-chips" id="typeChips">
