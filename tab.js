@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v1.3
+   Horizon Tab v1.4
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
@@ -23,7 +23,7 @@ const DL=[
   {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
 ];
 
-const DS={theme:"black",searchEngine:"google",links:DL};
+const DS={theme:"slate",searchEngine:"google",links:DL};
 let state={...DS},linkId=100;
 
 /* ── Storage ── */
@@ -81,59 +81,64 @@ function we(f,d){
 /* ── Theme application ── */
 function applyTheme(theme){
   state.theme=theme;
-  document.documentElement.setAttribute("data-theme",theme);
   saveState();
-  // Update Modern mode's day/night watcher
-  if(theme==="modern")scheduleModernSwitch();
+  if(theme==="modern"&&!state.bg){
+    scheduleModernSwitch();
+  }else{
+    document.documentElement.setAttribute("data-theme",theme);
+  }
 }
 
 function scheduleModernSwitch(){
-  // Use isDaytime from weather or sun calc
   const h=new Date().getHours();
-  const isDay=h>=6&&h<20; // rough 6am-8pm
-  document.documentElement.setAttribute("data-theme",isDay?"modern-day":"modern");
+  document.documentElement.setAttribute("data-theme",h>=6&&h<20?"modern-day":"modern");
 }
 
-/* ─── Background brightness analysis and overlay ─── */
-function getOverlayFromImage(img){
-  // Sample a 1x1 of the image to estimate brightness
+/* ─── Smart background: 1×1 brightness analysis ─── */
+function analyzeBrightness(img){
   const c=document.createElement("canvas");
   c.width=1;c.height=1;
   const ctx=c.getContext("2d");
   ctx.drawImage(img,0,0,1,1);
   const [r,g,b]=ctx.getImageData(0,0,1,1).data;
-  // Relative luminance: 0.299R + 0.587G + 0.114B
-  const lum=(0.299*r+0.587*g+0.114*b)/255;
-  return lum>0.5
-    ? {overlay:"rgba(255,255,255,0.65)",textTheme:"lightbg"}
-    : {overlay:"rgba(0,0,0,0.55)",textTheme:"darkbg"};
+  return(0.299*r+0.587*g+0.114*b)/255;
 }
 
 function applyBg(bgData){
   if(!bgData){clearBg();return}
   const img=new Image();
   img.onload=()=>{
-    const {overlay,textTheme}=getOverlayFromImage(img);
+    const lum=analyzeBrightness(img);
+    const isDark=lum<=0.5;
+    // Use dynamic overlay opacity based on how extreme the brightness is
+    const overlayOpacity=isDark
+      ? Math.min(0.55,0.35+lum*0.4)   // darker image → less overlay needed
+      : Math.min(0.60,0.80-lum*0.3);  // lighter image → more overlay
+    const overlayColor=isDark
+      ? `rgba(0,0,0,${overlayOpacity.toFixed(2)})`
+      : `rgba(255,255,255,${overlayOpacity.toFixed(2)})`;
+
     const el=document.getElementById("bgLayer");
     el.style.setProperty("--user-bg",`url(${bgData})`);
-    el.style.setProperty("--overlay-c",overlay);
+    el.style.setProperty("--overlay-c",overlayColor);
     el.classList.add("has-image");
     document.getElementById("glassOrb").style.display="none";
-    document.documentElement.setAttribute("data-theme",textTheme);
+    document.documentElement.setAttribute("data-theme",isDark?"darkbg":"lightbg");
     state.bg=bgData;
     saveState();
   };
-  img.onerror=()=>{clearBg()};
+  img.onerror=clearBg;
   img.src=bgData;
 }
+
 function clearBg(){
   const el=document.getElementById("bgLayer");
   el.classList.remove("has-image");
   el.style.removeProperty("--user-bg");
   el.style.removeProperty("--overlay-c");
   document.getElementById("glassOrb").style.display="";
-  // Revert to saved theme
-  applyTheme(state.theme||"black");
+  const t=state.theme||"slate";
+  document.documentElement.setAttribute("data-theme",t==="modern"?(new Date().getHours()>=6&&new Date().getHours()<20?"modern-day":"modern"):t);
 }
 
 /* ── Links render ── */
@@ -146,7 +151,7 @@ function renderLinks(){
   ).join("");
 }
 
-/* ── Settings panel ── */
+/* ── Settings ── */
 function openSettings(){
   document.getElementById("settingsPanel").classList.add("open");
   document.getElementById("settingsBackdrop").classList.add("open");
@@ -157,8 +162,6 @@ function closeSettings(){
   document.getElementById("settingsBackdrop").classList.remove("open");
 }
 
-const THUMB_MAX_BYTES=100*1024; // 100KB — chrome.storage.sync limit
-
 function renderSettings(){
   const b=state.bg;
   document.getElementById("settingsTitle").textContent="Horizon Settings";
@@ -166,24 +169,24 @@ function renderSettings(){
     <div class="settings-group">
       <label class="settings-label">Theme</label>
       <div class="theme-grid">
-        <button class="theme-btn${state.theme==="black"?" active":""}" data-theme="black">
-          <span class="theme-swatch" style="background:#0a0a0a;border:1px solid #333"></span>Black
+        <button class="theme-btn${state.theme==="slate"?" active":""}" data-theme="slate">
+          <span class="theme-swatch" style="background:#0d0d0d;border:1px solid #444"></span>Slate
         </button>
-        <button class="theme-btn${state.theme==="white"?" active":""}" data-theme="white">
-          <span class="theme-swatch" style="background:#f5f5f0;border:1px solid #ccc"></span>White
+        <button class="theme-btn${state.theme==="ivory"?" active":""}" data-theme="ivory">
+          <span class="theme-swatch" style="background:#f3f1ed;border:1px solid #ccc"></span>Ivory
         </button>
         <button class="theme-btn${state.theme==="navy"?" active":""}" data-theme="navy">
           <span class="theme-swatch" style="background:#001E44"></span>Navy
         </button>
         <button class="theme-btn${state.theme==="modern"?" active":""}" data-theme="modern">
-          <span class="theme-swatch" style="background:linear-gradient(135deg,#0a0a0a 50%,#f8f6f0 50%);border:1px solid #666"></span>Modern
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0d0d0d 50%,#f8f6f0 50%);border:1px solid #666"></span>Modern
         </button>
       </div>
     </div>
 
     <div class="settings-group">
       <label class="settings-label">Background</label>
-      <p class="settings-hint" id="bgHint">Upload your own image. Large files will be compressed to 100 KB.</p>
+      <p class="settings-hint">Upload your own image. Text and colors adjust automatically.</p>
       <div style="display:flex;gap:0.4rem">
         <button class="upload-btn" id="uploadBgBtn">🖼️ Upload Image</button>
         ${b?'<button class="upload-btn" id="clearBgBtn">✖ Clear</button>':''}
@@ -220,14 +223,13 @@ function renderSettings(){
   // Theme buttons
   document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
-      applyTheme(btn.dataset.theme);
-      // If we had a custom bg, clear it
       if(state.bg)clearBg();
+      applyTheme(btn.dataset.theme);
       renderSettings();
     });
   });
 
-  // Search engine buttons
+  // Engine buttons
   document.querySelectorAll("#settingsBody .engine-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
       state.searchEngine=btn.dataset.engine;
@@ -257,14 +259,12 @@ function renderSettings(){
     });
   });
 
-  // Add link
   document.getElementById("addLinkBtn")?.addEventListener("click",()=>{
     state.links.push({id:`lc${linkId++}`,label:"New Link",url:"https://example.com",emoji:"🌐",image:""});
     saveState();renderLinks();renderSettings();
     document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight;
   });
 
-  // Upload / Clear
   document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
   document.getElementById("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings();});
 }
@@ -276,31 +276,20 @@ document.getElementById("bgUpload").addEventListener("change",e=>{
   r.onload=()=>{
     const img=new Image();
     img.onload=()=>{
-      // Compress to fit in chrome.storage.sync (100KB per item)
-      let quality=0.85,w=img.width,h=img.height;
-      const MAX_DIM=1920;
-      if(w>MAX_DIM||h>MAX_DIM){
-        const ratio=Math.min(MAX_DIM/w,MAX_DIM/h);
-        w=Math.round(w*ratio);h=Math.round(h*ratio);
-      }
+      let q=0.85,w=img.width,h=img.height;
+      const MD=1920;
+      if(w>MD||h>MD){const R=Math.min(MD/w,MD/h);w=Math.round(w*R);h=Math.round(h*R)}
       const c=document.createElement("canvas");
       c.width=w;c.height=h;
-      const ctx=c.getContext("2d");
-      ctx.drawImage(img,0,0,w,h);
-      // Try compressing until under 90KB (keeping headroom)
-      const compress=(q)=>{
-        const data=c.toDataURL("image/jpeg",q);
-        const bytes=data.length*0.75; // rough base64 → bytes
-        if(bytes>THUMB_MAX_BYTES&&q>0.1)return compress(q-0.1);
-        return data;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      const comp=(qu)=>{
+        const d=c.toDataURL("image/jpeg",qu);
+        return d.length*0.75>100*1024&&qu>0.1?comp(qu-0.1):d;
       };
-      const compressed=compress(quality);
-      applyBg(compressed);
+      applyBg(comp(q));
       renderSettings();
     };
-    img.onerror=()=>{
-      document.getElementById("bgHint").textContent="Could not load that image. Try a different one.";
-    };
+    img.onerror=()=>{document.querySelector(".settings-hint").textContent="Could not load that image."};
     img.src=r.result;
   };
   r.readAsDataURL(f);
@@ -316,39 +305,30 @@ document.addEventListener("keydown",e=>{
 (async function boot(){
   await loadState();
 
-  // Apply stored background or theme
   if(state.bg){
     applyBg(state.bg);
   }else{
-    applyTheme(state.theme||"black");
+    applyTheme(state.theme||"slate");
   }
 
-  // Clock
   updateClock();
   setInterval(updateClock,1000);
 
-  // Weather
   fetchWeather();
   setInterval(fetchWeather,1800000);
 
-  // Quick links
   renderLinks();
 
-  // Search
   document.getElementById("searchForm").addEventListener("submit",e=>{
     e.preventDefault();
     const q=document.getElementById("searchInput").value.trim();if(!q)return;
-    const hasDot=q.includes(".")&&!q.includes(" ");
-    const isUrl=hasDot&&(q.startsWith("http://")||q.startsWith("https://")||q.startsWith("localhost"));
-    if(isUrl)window.location.href=q.startsWith("http")?q:`https://${q}`;
-    else window.location.href=(SE[state.searchEngine]||SE.google)+encodeURIComponent(q);
+    const h=q.includes(".")&&!q.includes(" "),u=h&&(q.startsWith("http://")||q.startsWith("https://")||q.startsWith("localhost"));
+    window.location.href=u
+      ?(q.startsWith("http")?q:`https://${q}`)
+      :(SE[state.searchEngine]||SE.google)+encodeURIComponent(q);
   });
 
-  // Settings toggle
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
   document.getElementById("settingsClose").addEventListener("click",closeSettings);
   document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
-
-  // If Modern theme, schedule day/night watcher
-  if(state.theme==="modern"&&!state.bg)scheduleModernSwitch();
 })();

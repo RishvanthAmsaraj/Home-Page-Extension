@@ -10,7 +10,7 @@ Replace your browser's new tab with something that's actually nice to look at �
 - **🌤️ Live weather** — current temp, conditions, and hi/lo from the National Weather Service (no API key needed)
 - **🔍 Smart search bar** — type to search, paste a URL to navigate directly. Supports Google, DuckDuckGo, Brave, Bing, Startpage, Kagi, Qwant, and SearXNG
 - **🔗 Custom quick links** — add, edit, remove, name, set emoji or **upload your own image** for each link
-- **🎨 4 handcrafted themes** — Black, White, Navy, and Amber (`#ff6200` orange)
+- **🎨 4 handcrafted themes** — Slate, Ivory, Navy, and Modern (auto day/night with `#ff6200` orange accents)
 - **🖼️ Smart background** — upload any image; extension analyzes brightness and switches text/surface colors for best visibility
 - **🥃 Liquid glass effects** — subtle glass-morphism surfaces, floating orb animation
 - **✨ Smooth animations** — everything fades in and transitions buttery smooth
@@ -60,10 +60,10 @@ All settings auto-save and sync.
 
 | Theme  | Preview | Vibe |
 |--------|---------|------|
-| Black  | `#0a0a0a` | True black, high contrast, minimal |
-| White  | `#f5f5f0` | Clean warm paper, light mode |
+| Slate  | `#0d0d0d` | Deep charcoal, softer than true black, premium |
+| Ivory  | `#f3f1ed` | Warm off-white, easy on the eyes |
 | Navy   | `#001E44` | Penn State deep blue elegance |
-| Modern | Day/Night | White bg/orange accents by day, dark bg/orange by night — switches automatically |
+| Modern | Day/Night | Ivory bg/orange accents by day, dark bg/orange by night — switches automatically |
 
 ## Lightweight
 
