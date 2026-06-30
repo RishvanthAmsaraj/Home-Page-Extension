@@ -1,0 +1,618 @@
+/* ── Reset ── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── Theme variables ── */
+html {
+  --bg-primary: #001E44;
+  --bg-secondary: #0A1525;
+  --glow-primary: #B8D4F0;
+  --glow-secondary: #1E4E8C;
+  --text: #E8EDF2;
+  --text-dim: #8899A8;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.10);
+  --surface-active: rgba(255, 255, 255, 0.14);
+  --border: rgba(184, 212, 240, 0.10);
+  --border-strong: rgba(184, 212, 240, 0.20);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --glass-blur: 20px;
+  --accent: #B8D4F0;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] {
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #111118;
+  --glow-primary: #607080;
+  --glow-secondary: #303848;
+  --text: #E0E4E8;
+  --text-dim: #707880;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --accent: #8899A8;
+}
+
+html[data-theme="frost"] {
+  --bg-primary: #0d1b2a;
+  --bg-secondary: #1b2838;
+  --glow-primary: #a0c4e8;
+  --glow-secondary: #4a6a8a;
+  --text: #D8E4F0;
+  --text-dim: #7890a8;
+  --accent: #a0c4e8;
+}
+
+html[data-theme="amber"] {
+  --bg-primary: #1a0e00;
+  --bg-secondary: #2d1a00;
+  --glow-primary: #ffb84d;
+  --glow-secondary: #cc7a00;
+  --text: #FAE8C8;
+  --text-dim: #a08050;
+  --border: rgba(255, 180, 50, 0.08);
+  --border-strong: rgba(255, 180, 50, 0.18);
+  --accent: #ffb84d;
+}
+
+html {
+  font-size: 16px;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  transition: background 0.6s ease, color 0.4s ease;
+}
+
+/* ── Ambient Liquid Glass ── */
+.ambient {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -15%, var(--glow-primary) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 40% at 15% 85%, var(--glow-secondary) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 50% at 85% 90%, var(--glow-primary) 0%, transparent 50%);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 0;
+  animation: breathe 10s ease-in-out infinite alternate;
+  transition: all 0.8s ease;
+}
+
+.glass-glow {
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow-primary) 0%, transparent 70%);
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(60px);
+  animation: drift 20s ease-in-out infinite alternate;
+  transition: all 0.8s ease;
+}
+
+@keyframes breathe {
+  0%   { opacity: 0.10; transform: scale(1); }
+  100% { opacity: 0.22; transform: scale(1.02); }
+}
+
+@keyframes drift {
+  0%   { transform: translate(-20%, -10%) scale(1); }
+  50%  { transform: translate(20%, 5%) scale(1.15); }
+  100% { transform: translate(-10%, 20%) scale(0.95); }
+}
+
+/* ── Layout ── */
+.container {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+  width: 100%;
+  max-width: 640px;
+  animation: fadeIn 0.8s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Hero ── */
+.hero .greeting {
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0.6;
+  margin-bottom: 0.2rem;
+}
+
+.hero .time {
+  font-size: 5rem;
+  font-weight: 250;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hero .date {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+/* ── Weather ── */
+.weather {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  padding: 0.45rem 1.1rem;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.weather-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.weather-temp {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.weather-desc {
+  opacity: 0.75;
+}
+
+.weather-hilo {
+  opacity: 0.5;
+  font-size: 0.75rem;
+}
+
+.weather-hilo::before {
+  content: "·";
+  margin-right: 0.45rem;
+  opacity: 0.4;
+}
+
+/* ── Search ── */
+.search-section {
+  width: 100%;
+}
+
+#searchForm {
+  width: 100%;
+}
+
+#searchInput {
+  width: 100%;
+  padding: 0.9rem 1.2rem;
+  font-size: 1rem;
+  font-family: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+#searchInput::placeholder {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+#searchInput:focus {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* ── Quick Links ── */
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 520px;
+}
+
+.link-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  padding: 0.7rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  min-width: 72px;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.link-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.link-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  line-height: 1;
+  transition: transform 0.2s;
+  overflow: hidden;
+}
+
+.link-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.link-item:hover .link-icon {
+  transform: scale(1.08);
+}
+
+.link-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  font-weight: 500;
+}
+
+/* ── Settings Toggle ── */
+.settings-toggle {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  color: var(--text-dim);
+  font-size: 1.3rem;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.25s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-toggle:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  color: var(--text);
+  transform: scale(1.05);
+}
+
+/* ── Settings Panel ── */
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 98;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.settings-backdrop.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: -420px;
+  width: 400px;
+  max-width: 90vw;
+  height: 100%;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-strong);
+  z-index: 99;
+  overflow-y: auto;
+  transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.settings-panel.open {
+  right: 0;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem 1.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.settings-close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.settings-body {
+  padding: 1.25rem 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.settings-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.settings-hint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: -0.3rem;
+}
+
+/* ── Search Engine Buttons ── */
+.search-engine-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.engine-btn {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.engine-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.engine-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+/* ── Theme Buttons ── */
+.theme-options {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.theme-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 70px;
+}
+
+.theme-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.theme-btn.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.theme-preview {
+  width: 100%;
+  height: 36px;
+  border-radius: 6px;
+  display: block;
+}
+
+/* ── Custom Links ── */
+.custom-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.link-editor {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.link-editor input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.link-editor input::placeholder {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
+.link-editor .link-emoji-input {
+  max-width: 36px;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.link-editor .link-img-input {
+  flex: 0.8;
+  font-size: 0.7rem;
+}
+
+.link-remove {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.link-remove:hover {
+  background: rgba(255, 60, 60, 0.15);
+  color: #ff5a5a;
+  border-color: rgba(255, 60, 60, 0.3);
+}
+
+.btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  align-self: flex-start;
+}
+
+.btn-secondary:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .hero .time {
+    font-size: 3.2rem;
+  }
+  .links {
+    gap: 0.45rem;
+  }
+  .weather {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.85rem;
+  }
+  .container {
+    padding: 1.5rem;
+    gap: 1.5rem;
+  }
+}
