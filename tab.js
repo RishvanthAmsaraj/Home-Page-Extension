@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v1.2 — Settings & Customization
+   Horizon Tab v1.2.1 — Settings & Customization
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
@@ -15,128 +15,112 @@ const SE={
 };
 
 const DL=[
-  {id:"l1",label:"ChatGPT",url:"https://chatgpt.com",emoji:"\u{1F916}",image:""},
-  {id:"l2",label:"GitHub",url:"https://github.com",emoji:"\u{1F4BB}",image:""},
-  {id:"l3",label:"Calendar",url:"https://calendar.google.com",emoji:"\u{1F4C5}",image:""},
-  {id:"l4",label:"Mail",url:"https://mail.google.com",emoji:"\u{1F4E7}",image:""},
-  {id:"l5",label:"Canvas",url:"https://canvas.psu.edu",emoji:"\u{1F4DA}",image:""},
-  {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"\u26A1",image:""}
+  {id:"l1",label:"ChatGPT",url:"https://chatgpt.com",emoji:"🤖",image:""},
+  {id:"l2",label:"GitHub",url:"https://github.com",emoji:"💻",image:""},
+  {id:"l3",label:"Calendar",url:"https://calendar.google.com",emoji:"📅",image:""},
+  {id:"l4",label:"Mail",url:"https://mail.google.com",emoji:"📧",image:""},
+  {id:"l5",label:"Canvas",url:"https://canvas.psu.edu",emoji:"📚",image:""},
+  {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
 ];
 
 const DS={theme:"black",searchEngine:"google",links:DL};
-let state={...DS},lC=100,$=(s)=>document.querySelector(s),$$=(s)=>document.querySelectorAll(s);
-const E={};
+let state={...DS},linkId=100;
 
-function el(){Object.assign(E,{
-  t:$("#time"),g:$("#greeting"),d:$("#date"),
-  sf:$("#searchForm"),si:$("#searchInput"),
-  l:$("#links"),
-  wi:$("#weatherIcon"),wt:$("#weatherTemp"),wd:$("#weatherDesc"),wh:$("#weatherHiLo"),
-  st:$("#settingsToggle"),sp:$("#settingsPanel"),sc:$("#settingsClose"),sb:$("#settingsBackdrop"),
-  cl:$("#customLinks"),al:$("#addLinkBtn"),
-  so:$("#searchEngineOptions"),to:$("#themeOptions"),
-  bl:$("#bgLayer"),go:$("#glassOrb"),
-  h:document.documentElement,sbdy:$("#settingsBody")
-})}
-
-async function ld(){
+// ── Storage ──
+async function loadState(){
   try{
     const s=await chrome.storage.sync.get(["hz"]);
     if(s.hz)state={...DS,...s.hz,links:s.hz.links||DL};
   }catch{
-    try{const s=localStorage.getItem("hz");if(s)state={...DS,...JSON.parse(s)}}
-    catch{}
+    try{const s=localStorage.getItem("hz");if(s)state={...DS,...JSON.parse(s)}}catch{}
   }
 }
-async function sv(){
+async function saveState(){
   const o={theme:state.theme,searchEngine:state.searchEngine,links:state.links,bg:state.bg};
   try{await chrome.storage.sync.set({hz:o})}catch{try{localStorage.setItem("hz",JSON.stringify(o))}catch{}}
 }
 
 // ── Clock ──
-function gr(){const h=new Date().getHours();return h<12?"good morning":h<17?"good afternoon":h<21?"good evening":"good night"}
-function uc(){
-  const n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,"0"),a=h>=12?"PM":"AM",h12=h%12||12;
-  E.t.textContent=`${h12}:${m} ${a}`;
-  E.g.textContent=gr();
-  E.d.textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})
+function getGreeting(){
+  const h=new Date().getHours();
+  return h<12?"good morning":h<17?"good afternoon":h<21?"good evening":"good night";
 }
-uc();setInterval(uc,1e3);
+function updateClock(){
+  const n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,"0");
+  document.getElementById("time").textContent=`${h%12||12}:${m} ${h>=12?"PM":"AM"}`;
+  document.getElementById("greeting").textContent=getGreeting();
+  document.getElementById("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+}
 
 // ── Weather ──
-async function fw(){
+async function fetchWeather(){
   try{
     const p=await(await fetch(`https://api.weather.gov/points/${LAT},${LON}`)).json();
     const f=await(await fetch(p.properties.forecast)).json(),ps=f.properties.periods;
-    const c=ps[0],n=ps[1],t=c.temperature,d=c.isDaytime,s=c.shortForecast;
-    let hi=n&&n.isDaytime?n.temperature:t,lo=n&&!n.isDaytime?n.temperature:t;
-    if(!d){lo=t;const td=ps[2]&&ps[2].isDaytime?ps[2]:null;hi=td?td.temperature:n?n.temperature:t}
-    E.wi.textContent=we(c.shortForecast,d);
-    E.wt.textContent=`${t}\u00B0`;
-    E.wd.textContent=s;
-    E.wh.textContent=`H ${hi}\u00B0 L ${lo}\u00B0`;
-  }catch{E.wd.textContent="unavailable"}
+    const c=ps[0],nxt=ps[1],t=c.temperature,d=c.isDaytime;
+    let hi=nxt&&nxt.isDaytime?nxt.temperature:t,lo=nxt&&!nxt.isDaytime?nxt.temperature:t;
+    if(!d){lo=t;const td=ps[2]&&ps[2].isDaytime?ps[2]:null;hi=td?td.temperature:nxt?nxt.temperature:t}
+    document.getElementById("weatherIcon").textContent=weatherEmoji(c.shortForecast,d);
+    document.getElementById("weatherTemp").textContent=`${t}°`;
+    document.getElementById("weatherDesc").textContent=c.shortForecast;
+    document.getElementById("weatherHiLo").textContent=`H ${hi}° L ${lo}°`;
+  }catch{document.getElementById("weatherDesc").textContent="unavailable"}
 }
-function we(f,d){
+function weatherEmoji(f,d){
   const F=f.toLowerCase();
-  if(F.includes("sunny")||F.includes("clear"))return d?"\u2600\uFE0F":"\uD83C\uDF19";
-  if(F.includes("cloudy")||F.includes("overcast"))return"\u2601\uFE0F";
-  if(F.includes("partly"))return d?"\u26C5":"\uD83C\uDF19";
-  if(F.includes("rain")||F.includes("shower")||F.includes("drizzle"))return"\uD83C\uDF27\uFE0F";
-  if(F.includes("thunder")||F.includes("storm"))return"\u26C8\uFE0F";
-  if(F.includes("snow")||F.includes("flurr")||F.includes("blizzard"))return"\u2744\uFE0F";
-  if(F.includes("fog")||F.includes("mist")||F.includes("haze"))return"\uD83C\uDF2B\uFE0F";
-  if(F.includes("wind")||F.includes("breez"))return"\uD83D\uDCA8";
-  return d?"\u2600\uFE0F":"\uD83C\uDF19";
+  if(F.includes("sunny")||F.includes("clear"))return d?"☀️":"🌙";
+  if(F.includes("cloudy")||F.includes("overcast"))return"☁️";
+  if(F.includes("partly"))return d?"⛅":"🌙";
+  if(F.includes("rain")||F.includes("shower")||F.includes("drizzle"))return"🌧️";
+  if(F.includes("thunder")||F.includes("storm"))return"⛈️";
+  if(F.includes("snow")||F.includes("flurr")||F.includes("blizzard"))return"❄️";
+  if(F.includes("fog")||F.includes("mist")||F.includes("haze"))return"🌫️";
+  if(F.includes("wind")||F.includes("breez"))return"💨";
+  return d?"☀️":"🌙";
 }
-fw();setInterval(fw,18e5);
 
-// ── Search ──
-E.sf?.addEventListener("submit",e=>{
-  e.preventDefault();
-  const q=E.si.value.trim();if(!q)return;
-  const h=q.includes(".")&&!q.includes(" "),u=h&&(q.startsWith("http")||q.startsWith("https")||q.startsWith("localhost"));
-  if(u)window.location.href=q.startsWith("http")?q:`https://${q}`;
-  else window.location.href=(SE[state.searchEngine]||SE.google)+encodeURIComponent(q);
-});
-
-// ── Links ──
-function rl(){
-  E.l.innerHTML=state.links.map(l=>
+// ── Links render ──
+function renderLinks(){
+  document.getElementById("links").innerHTML=state.links.map(l=>
     `<a href="${l.url}" class="link-item" title="${l.url}">
-      <span class="link-icon">${l.image?`<img src="${l.image}" alt="" loading="lazy">`:l.emoji||"\uD83C\uDF10"}</span>
+      <span class="link-icon">${l.image?`<img src="${l.image}" alt="" loading="lazy">`:l.emoji||"🌐"}</span>
       <span class="link-label">${l.label}</span>
     </a>`
-  ).join("")
+  ).join("");
 }
 
 // ── Background ──
 function applyBg(bgData){
-  state.bg=bgData;sv();
+  state.bg=bgData;saveState();
+  const bl=document.getElementById("bgLayer"),go=document.getElementById("glassOrb");
   if(bgData){
-    E.bl.style.setProperty("--user-bg",`url(${bgData})`);
-    E.bl.style.setProperty("--user-overlay","rgba(0,0,0,.55)");
-    E.bl.classList.add("has-image");
-    E.go.style.display="none";
+    bl.style.setProperty("--user-bg",`url(${bgData})`);
+    bl.style.setProperty("--user-overlay","rgba(0,0,0,0.55)");
+    bl.classList.add("has-image");
+    go.style.display="none";
   }else{
-    E.bl.classList.remove("has-image");
-    E.bl.style.removeProperty("--user-bg");
-    E.bl.style.removeProperty("--user-overlay");
-    E.go.style.display="";
+    bl.classList.remove("has-image");
+    bl.style.removeProperty("--user-bg");
+    bl.style.removeProperty("--user-overlay");
+    go.style.display="";
   }
 }
 
 // ── Settings panel ──
-function os(){E.sp.classList.add("open");E.sb.classList.add("open");rle()}
-function cs(){E.sp.classList.remove("open");E.sb.classList.remove("open")}
-E.st?.addEventListener("click",os);
-E.sc?.addEventListener("click",cs);
-E.sb?.addEventListener("click",cs);
+function openSettings(){
+  document.getElementById("settingsPanel").classList.add("open");
+  document.getElementById("settingsBackdrop").classList.add("open");
+  renderSettings();
+}
+function closeSettings(){
+  document.getElementById("settingsPanel").classList.remove("open");
+  document.getElementById("settingsBackdrop").classList.remove("open");
+}
 
-// ── Settings render ──
-function rle(){
+// ── Settings content render ──
+function renderSettings(){
   const b=state.bg;
-  E.sbdy.innerHTML=`
+  document.getElementById("settingsBody").innerHTML=`
     <div class="settings-group">
       <label class="settings-label">Theme</label>
       <div class="theme-grid">
@@ -157,10 +141,10 @@ function rle(){
 
     <div class="settings-group">
       <label class="settings-label">Background</label>
-      <p class="settings-hint">Upload your own image or clear to use theme gradients.</p>
-      <div style="display:flex;gap:.4rem">
-        <button class="upload-btn" id="uploadBgBtn">\u{1F5BC}\uFE0F Upload Image</button>
-        ${b?'<button class="upload-btn" id="clearBgBtn">\u2716 Clear</button>':''}
+      <p class="settings-hint">Upload your own image, or clear to use theme gradients.</p>
+      <div style="display:flex;gap:0.4rem">
+        <button class="upload-btn" id="uploadBgBtn">🖼️ Upload Image</button>
+        ${b?'<button class="upload-btn" id="clearBgBtn">✖ Clear</button>':''}
       </div>
     </div>
 
@@ -176,14 +160,14 @@ function rle(){
     <div class="settings-group">
       <label class="settings-label">Quick Links</label>
       <p class="settings-hint">Name, URL, emoji or image URL.</p>
-      <div class="custom-links" id="customLinks">
+      <div class="custom-links" id="customLinksRendered">
         ${state.links.map((l,i)=>`
-          <div class="link-editor" data-i="${i}">
-            <input class="le-emoji" value="${l.emoji||"\uD83C\uDF10"}" maxlength="2" placeholder="\uD83C\uDF10">
+          <div class="link-editor" data-idx="${i}">
+            <input class="le-emoji" value="${l.emoji||"🌐"}" maxlength="2" placeholder="🌐">
             <input class="le-label" value="${l.label}" placeholder="Label">
             <input class="le-url" value="${l.url}" placeholder="https://...">
             <input class="le-img" value="${l.image||""}" placeholder="Img URL">
-            <button class="link-remove" title="Remove">\u2715</button>
+            <button class="link-remove" title="Remove">✕</button>
           </div>
         `).join("")}
       </div>
@@ -192,70 +176,106 @@ function rle(){
   `;
 
   // Theme buttons
-  E.sbdy.querySelectorAll(".theme-btn").forEach(b=>
-    b.addEventListener("click",()=>{state.theme=b.dataset.theme;E.h.setAttribute("data-theme",state.theme);rle();sv()})
-  );
+  document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.theme=btn.dataset.theme;
+      document.documentElement.setAttribute("data-theme",state.theme);
+      renderSettings();
+      saveState();
+    });
+  });
 
   // Search engine buttons
-  E.sbdy.querySelectorAll(".engine-btn").forEach(b=>
-    b.addEventListener("click",()=>{state.searchEngine=b.dataset.engine;rle();sv()})
-  );
+  document.querySelectorAll("#settingsBody .engine-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.searchEngine=btn.dataset.engine;
+      renderSettings();
+      saveState();
+    });
+  });
 
   // Link editors
-  E.sbdy.querySelectorAll(".link-editor").forEach(ed=>{
-    const i=parseInt(ed.dataset.i);
-    const inputs={
-      emoji:ed.querySelector(".le-emoji"),
-      label:ed.querySelector(".le-label"),
-      url:ed.querySelector(".le-url"),
-      img:ed.querySelector(".le-img")
-    };
+  document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{
+    const idx=parseInt(ed.dataset.idx);
     const save=()=>{
-      state.links[i]={...state.links[i],
-        emoji:inputs.emoji.value||"\uD83C\uDF10",
-        label:inputs.label.value||"Link",
-        url:inputs.url.value||"https://example.com",
-        image:inputs.img.value||""
+      state.links[idx]={
+        ...state.links[idx],
+        emoji:ed.querySelector(".le-emoji").value||"🌐",
+        label:ed.querySelector(".le-label").value||"Link",
+        url:ed.querySelector(".le-url").value||"https://example.com",
+        image:ed.querySelector(".le-img").value||""
       };
-      sv();rl();
+      saveState();renderLinks();
     };
-    Object.values(inputs).forEach(inp=>inp.addEventListener("input",save));
+    ed.querySelector(".le-emoji").addEventListener("input",save);
+    ed.querySelector(".le-label").addEventListener("input",save);
+    ed.querySelector(".le-url").addEventListener("input",save);
+    ed.querySelector(".le-img").addEventListener("input",save);
     ed.querySelector(".link-remove").addEventListener("click",()=>{
-      state.links.splice(i,1);sv();rl();rle()
+      state.links.splice(idx,1);saveState();renderLinks();renderSettings();
     });
   });
 
   // Add link
-  const al=E.sbdy.querySelector("#addLinkBtn");
-  if(al)al.addEventListener("click",()=>{
-    state.links.push({id:`lc${lC++}`,label:"New Link",url:"https://example.com",emoji:"\uD83C\uDF10",image:""});
-    sv();rl();rle();
-    E.sp.scrollTop=E.sp.scrollHeight;
+  document.getElementById("addLinkBtn")?.addEventListener("click",()=>{
+    state.links.push({id:`lc${linkId++}`,label:"New Link",url:"https://example.com",emoji:"🌐",image:""});
+    saveState();renderLinks();renderSettings();
+    document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight;
   });
 
-  // Upload / Clear background
-  const up=E.sbdy.querySelector("#uploadBgBtn");
-  if(up)up.addEventListener("click",()=>document.getElementById("bgUpload").click());
-  const cl=E.sbdy.querySelector("#clearBgBtn");
-  if(cl)cl.addEventListener("click",()=>{applyBg(null);rle()});
+  // Upload background
+  document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
+  // Clear background
+  document.getElementById("clearBgBtn")?.addEventListener("click",()=>{applyBg(null);renderSettings();});
 }
 
-// ── Background file upload ──
-document.getElementById("bgUpload").addEventListener("change",e=>{
-  const f=e.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=ev=>{applyBg(ev.target.result);rle()};
-  r.readAsDataURL(f);
-  e.target.value="";
-});
-
-// ── Keyboard ──
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&E.sp.classList.contains("open"))cs()});
-
 // ── Boot ──
-(async function(){
-  el();await ld();
-  E.h.setAttribute("data-theme",state.theme);
+(async function boot(){
+  await loadState();
+
+  // Apply theme
+  document.documentElement.setAttribute("data-theme",state.theme);
+
+  // Restore background
   if(state.bg)applyBg(state.bg);
-  rl();
+
+  // Clock
+  updateClock();
+  setInterval(updateClock,1000);
+
+  // Weather
+  fetchWeather();
+  setInterval(fetchWeather,1800000);
+
+  // Quick links
+  renderLinks();
+
+  // Search form
+  document.getElementById("searchForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    const q=document.getElementById("searchInput").value.trim();if(!q)return;
+    const hasDot=q.includes(".")&&!q.includes(" ");
+    const isUrl=hasDot&&(q.startsWith("http://")||q.startsWith("https://")||q.startsWith("localhost"));
+    if(isUrl)window.location.href=q.startsWith("http")?q:`https://${q}`;
+    else window.location.href=(SE[state.searchEngine]||SE.google)+encodeURIComponent(q);
+  });
+
+  // Settings toggle
+  document.getElementById("settingsToggle").addEventListener("click",openSettings);
+  document.getElementById("settingsClose").addEventListener("click",closeSettings);
+  document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
+
+  // Background file upload
+  document.getElementById("bgUpload").addEventListener("change",e=>{
+    const f=e.target.files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=ev=>{applyBg(ev.target.result)};
+    r.readAsDataURL(f);
+    e.target.value="";
+  });
+
+  // Keyboard
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
+  });
 })();
