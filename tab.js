@@ -79,17 +79,19 @@ const SYS="hz";
 const BG_KEY="hz_bg";
 
 async function loadState(){
+  // Settings: sync → localStorage
   try{
-    const s=await chrome.storage.sync.get([SYS,BG_KEY]);
+    const s=await chrome.storage.sync.get([SYS]);
     if(s[SYS])state={...DS,...s[SYS],links:s[SYS].links||DL};
-    if(s[BG_KEY])state.bg=s[BG_KEY];
   }catch{
-    try{
-      const s=localStorage.getItem(SYS);
-      if(s)state={...DS,...JSON.parse(s),links:JSON.parse(s).links||DL};
-      const b=localStorage.getItem(BG_KEY);
-      if(b)state.bg=b;
-    }catch{}
+    try{const s=localStorage.getItem(SYS);if(s)state={...DS,...JSON.parse(s),links:JSON.parse(s).links||DL}}catch{}
+  }
+  // Background: local (unlimited quota) → localStorage
+  try{
+    const b=await chrome.storage.local.get([BG_KEY]);
+    if(b[BG_KEY])state.bg=b[BG_KEY];
+  }catch{
+    try{const b=localStorage.getItem(BG_KEY);if(b)state.bg=b}catch{}
   }
 }
 
@@ -98,11 +100,19 @@ function saveState(){
     links:state.links,glassOpacity:state.glassOpacity,searchMode:state.searchMode,
     customBg:state.customBg,customAccent:state.customAccent,customLight:state.customLight,
     searchType:state.searchType,aiFreeOn:state.aiFreeOn};
-  // Store bg separately so it never hits the sync quota
   const bg=state.bg;
   delete o.bg;
-  try{chrome.storage.sync.set({[SYS]:o,[BG_KEY]:bg||""})}catch{
-    try{localStorage.setItem(SYS,JSON.stringify(o));localStorage.setItem(BG_KEY,bg||"")}catch{}
+  // Settings → sync
+  try{chrome.storage.sync.set({[SYS]:o})}catch{
+    try{localStorage.setItem(SYS,JSON.stringify(o))}catch{}
+  }
+  // Background → local (unlimited)
+  if(bg){
+    try{chrome.storage.local.set({[BG_KEY]:bg})}catch{
+      try{localStorage.setItem(BG_KEY,bg)}catch{}
+    }
+  }else{
+    try{chrome.storage.local.remove(BG_KEY)}catch{}
   }
 }
 
