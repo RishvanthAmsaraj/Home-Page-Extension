@@ -7,19 +7,16 @@
   <link rel="stylesheet" href="tab.css" />
 </head>
 <body>
-  <!-- Liquid glass ambient layer -->
-  <div class="ambient" id="ambient"></div>
-  <div class="glass-glow" id="glassGlow"></div>
+  <div class="bg-layer" id="bgLayer"></div>
+  <div class="glass-orb" id="glassOrb"></div>
 
   <div class="container">
-    <!-- Clock & Greeting -->
     <section class="hero">
       <p class="greeting" id="greeting">good morning</p>
       <h1 class="time" id="time">--:--</h1>
       <p class="date" id="date">-----</p>
     </section>
 
-    <!-- Weather -->
     <section class="weather" id="weather">
       <span class="weather-icon" id="weatherIcon">☀️</span>
       <span class="weather-temp" id="weatherTemp">--°</span>
@@ -27,73 +24,30 @@
       <span class="weather-hilo" id="weatherHiLo">H --° L --°</span>
     </section>
 
-    <!-- Search -->
     <section class="search-section">
       <form id="searchForm">
         <input type="text" id="searchInput" placeholder="Search or type a URL..." autofocus />
       </form>
     </section>
 
-    <!-- Quick Links -->
     <section class="links" id="links"></section>
   </div>
 
-  <!-- ── Settings Panel ── -->
-  <button class="settings-toggle" id="settingsToggle" title="Customize Horizon">⚙️</button>
+  <button class="settings-toggle" id="settingsToggle" title="Customize">⚙️</button>
 
+  <div class="settings-backdrop" id="settingsBackdrop"></div>
   <div class="settings-panel" id="settingsPanel">
     <div class="settings-header">
-      <h2>Horizon Settings</h2>
+      <h2>Horizon</h2>
       <button class="settings-close" id="settingsClose">✕</button>
     </div>
-
-    <div class="settings-body">
-      <!-- Search Engine -->
-      <div class="settings-group">
-        <label class="settings-label">Search Engine</label>
-        <div class="search-engine-options" id="searchEngineOptions">
-          <button class="engine-btn" data-engine="google">Google</button>
-          <button class="engine-btn" data-engine="duckduckgo">DuckDuckGo</button>
-          <button class="engine-btn" data-engine="brave">Brave</button>
-          <button class="engine-btn" data-engine="bing">Bing</button>
-        </div>
-      </div>
-
-      <!-- Custom Links -->
-      <div class="settings-group">
-        <label class="settings-label">Quick Links</label>
-        <p class="settings-hint">Add, edit, or remove your quick links below.</p>
-        <div class="custom-links" id="customLinks">
-          <!-- Rendered by JS -->
-        </div>
-        <button class="btn btn-secondary" id="addLinkBtn">+ Add Link</button>
-      </div>
-
-      <!-- Theme -->
-      <div class="settings-group">
-        <label class="settings-label">Theme</label>
-        <div class="theme-options" id="themeOptions">
-          <button class="theme-btn" data-theme="navy">
-            <span class="theme-preview" style="background:linear-gradient(135deg,#001E44,#0A2E5C)"></span>
-            Navy
-          </button>
-          <button class="theme-btn" data-theme="dark">
-            <span class="theme-preview" style="background:linear-gradient(135deg,#0a0a0a,#1a1a2e)"></span>
-            Dark
-          </button>
-          <button class="theme-btn" data-theme="frost">
-            <span class="theme-preview" style="background:linear-gradient(135deg,#0d1b2a,#1b2838)"></span>
-            Frost
-          </button>
-          <button class="theme-btn" data-theme="amber">
-            <span class="theme-preview" style="background:linear-gradient(135deg,#1a0e00,#2d1a00)"></span>
-            Amber
-          </button>
-        </div>
-      </div>
+    <div class="settings-body" id="settingsBody">
+      <!-- Filled by JS -->
     </div>
   </div>
-  <div class="settings-backdrop" id="settingsBackdrop"></div>
+
+  <!-- Hidden file input for bg upload -->
+  <input type="file" id="bgUpload" accept="image/*" hidden />
 
   <script src="tab.js"></script>
 </body>

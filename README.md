@@ -2,23 +2,20 @@
 
 A minimal, beautiful, customizable new tab page for Chromium browsers (Brave, Chrome, Edge, Opera, etc.) and Firefox.
 
-Replace your browser's new tab with something that's actually nice to look at — clean typography, liquid glass effects, and useful info at a glance without the clutter.
+Replace your browser's new tab with something that's actually nice to look at — clean typography, smooth animations, liquid glass effects, and useful info without the clutter. **~35 KB total**, zero dependencies.
 
 ## Features
 
 - **🕐 Clean clock & greeting** — big beautiful time with ambient-aware greeting
 - **🌤️ Live weather** — current temp, conditions, and hi/lo from the National Weather Service (no API key needed)
-- **🔍 Smart search bar** — type to search, paste a URL to navigate directly
-- **🔗 Custom quick links** — add, edit, remove, name, and set emoji or image for each link
-- **🎨 4 handcrafted themes** — Navy, Dark, Frost, and Amber
-- **🔎 Search engine picker** — Google, DuckDuckGo, Brave Search, or Bing
-- **🥃 Liquid glass effects** — subtle ambient glow and glass-morphism surfaces that breathe
-- **⚡ Blazing fast** — pure vanilla JS, no frameworks, no dependencies
+- **🔍 Smart search bar** — type to search, paste a URL to navigate directly. Supports Google, DuckDuckGo, Brave, Bing, Startpage, Kagi, Qwant, and SearXNG
+- **🔗 Custom quick links** — add, edit, remove, name, set emoji or **upload your own image** for each link
+- **🎨 4 handcrafted themes** — Black, White, Navy, and Amber (`#ff6200` orange)
+- **🖼️ Custom background** — upload your own image, automatic overlay adjusts for readability
+- **🥃 Liquid glass effects** — subtle glass-morphism surfaces, floating orb animation
+- **✨ Smooth animations** — everything fades in and transitions buttery smooth
+- **⚡ Blazing fast** — pure vanilla JS, no frameworks, ~35 KB total, zero dependencies
 - **💾 Settings persist** — via `chrome.storage.sync`, syncs across devices
-
-## Screenshots
-
-*(Add your own!)*
 
 ## Installation
 
@@ -29,39 +26,42 @@ Replace your browser's new tab with something that's actually nice to look at �
 3. Enable **Developer mode** (toggle in top-right)
 4. Click **Load unpacked**
 5. Select the `horizon-tab` folder
-6. Open a new tab — 🎉
+6. Open a new tab
 
 ### Firefox
 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on**
-3. Select the `manifest.json` file in the folder
-4. Open a new tab
+3. Select the `manifest.json` file
 
-> **Note for Firefox:** `chrome.storage.sync` may not be available in temporary add-ons. The extension automatically falls back to `localStorage` if sync storage isn't available.
+> **Note:** Firefox fallbacks to `localStorage` if `chrome.storage.sync` isn't available in temporary add-ons.
 
 ## Customization
 
 Click the **⚙️** button in the bottom-right to open the settings panel:
 
-- **Search Engine** — Pick your preferred search engine
-- **Quick Links** — Add new links, edit existing ones (label, URL, emoji, image URL), or remove them
-- **Theme** — Choose from Navy, Dark, Frost, or Amber
+- **Theme** — Choose from Black, White, Navy, or Amber (orange `#ff6200`)
+- **Background** — Upload your own PNG/JPEG image; elements auto-adjust overlay for readability
+- **Search Engine** — Pick from 8 search engines
+- **Quick Links** — Add/edit/remove links with custom names, emojis, or uploaded images
 
-All settings are saved automatically and sync across devices signed into the same browser account.
+All settings auto-save and sync.
 
 ## Themes
 
-| Theme  | Vibe                                      |
-|--------|-------------------------------------------|
-| Navy   | Penn State-inspired, deep blue elegance   |
-| Dark   | True black, minimal, high contrast        |
-| Frost  | Cool blue-gray, serene and calm           |
-| Amber  | Warm golden tones, cozy and rich          |
+| Theme  | Preview | Vibe |
+|--------|---------|------|
+| Black  | `#0a0a0a` | True black, high contrast, minimal |
+| White  | `#f5f5f0` | Clean warm paper, light mode |
+| Navy   | `#001E44` | Penn State deep blue elegance |
+| Amber  | `#ff6200` | Signature orange from our projects |
 
-## Building from Source
+## Lightweight
 
-No build step needed. The extension is pure HTML/CSS/JS. Edit any file and reload the extension to see changes.
+- **~35 KB** total for all files
+- Zero frameworks, zero dependencies
+- Vanilla CSS/JS only
+- No unused re-renders, no React, no build step
 
 ## License
 
