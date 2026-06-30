@@ -134,7 +134,7 @@ function renderSettings(){
           <span class="theme-swatch" style="background:#001E44"></span>Navy
         </button>
         <button class="theme-btn${state.theme==="amber"?" active":""}" data-theme="amber">
-          <span class="theme-swatch" style="background:#ff6200"></span>Amber
+          <span class="theme-swatch" style="background:#ff6200;border:1px solid rgba(255,255,255,0.3)"></span>Amber
         </button>
       </div>
     </div>
@@ -269,7 +269,7 @@ function renderSettings(){
   document.getElementById("bgUpload").addEventListener("change",e=>{
     const f=e.target.files[0];if(!f)return;
     const r=new FileReader();
-    r.onload=ev=>{applyBg(ev.target.result)};
+    r.onload=()=>{applyBg(r.result)};
     r.readAsDataURL(f);
     e.target.value="";
   });

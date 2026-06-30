@@ -19,7 +19,7 @@ Replace your browser's new tab with something that's actually nice to look at â€
 
 ## Installation
 
-### Brave / Chrome / Edge / Opera (Chromium)
+### Brave / Chrome / Edge / Opera / Vivaldi (Chromium)
 
 1. Download or clone this repo
 2. Open `brave://extensions` (or `chrome://extensions`, `edge://extensions`)
@@ -34,7 +34,16 @@ Replace your browser's new tab with something that's actually nice to look at â€
 2. Click **Load Temporary Add-on**
 3. Select the `manifest.json` file
 
-> **Note:** Firefox fallbacks to `localStorage` if `chrome.storage.sync` isn't available in temporary add-ons.
+> Firefox falls back to `localStorage` if `chrome.storage.sync` isn't available in temporary add-ons.
+
+### Orion
+
+Orion is WebKit-based (macOS/iOS) and supports Chrome extensions, but it **does not support `chrome_url_overrides`** (the API that replaces the new tab page). Workaround:
+
+1. Load the extension via Orion's extension manager (same "Load unpacked" flow at `orion://extensions`)
+2. Set the file path to `tab.html` as your homepage in Orion's Start Page settings
+
+This means Horizon will open when you launch the browser or click the home button, but won't fully replace the native new tab. If Orion adds `chrome_url_overrides` support in a future update, it'll work natively.
 
 ## Customization
 
