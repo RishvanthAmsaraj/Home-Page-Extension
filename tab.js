@@ -1,10 +1,9 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v1.8 — Clean dropdown + filter bar
+   Horizon Tab v1.9 — Integrated dropdown + text filters
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
 
-/* ── Search engines ── */
 const SE={
   google:"https://www.google.com/search?q=",
   duckduckgo:"https://duckduckgo.com/?q=",
@@ -15,9 +14,7 @@ const SE={
   qwant:"https://www.qwant.com/?q=",
   searxng:"https://searx.be/search?q="
 };
-const SE_ICON={google:"G",duckduckgo:"DD",brave:"B",bing:"Bi",startpage:"SP",kagi:"Ka",qwant:"Qw",searxng:"Sx"};
 
-/* ── AI providers ── */
 const AI={
   perplexity:"https://www.perplexity.ai/search?q=",
   grok:"https://grok.com/?q=",
@@ -27,11 +24,9 @@ const AI={
   deepseek:"https://chat.deepseek.com/?q="
 };
 const AI_L={perplexity:"Perplexity",grok:"Grok",gemini:"Gemini",chatgpt:"ChatGPT",claude:"Claude",deepseek:"DeepSeek"};
-const AI_ICON={perplexity:"P",grok:"Gk",gemini:"Ge",chatgpt:"C",claude:"Cl",deepseek:"DS"};
-// Providers that auto-submit (open to results) vs prefill only
 const AI_AUTO=new Set(["perplexity","grok","gemini"]);
+const AI_ORDER=["perplexity","grok","gemini","chatgpt","claude","deepseek"];
 
-/* ── AI-free params ── */
 const AI_FREE_PARAMS={
   google:"&udm=14",duckduckgo:"&ia=web",brave:"&source=web",
   bing:"&adlt=strict&qft=interval%3d%22%22",kagi:"&ai_mode=off",
@@ -40,12 +35,9 @@ function aiFreeURL(base,q,engine){
   return base+encodeURIComponent(q)+(AI_FREE_PARAMS[engine]||"");
 }
 
-/* ── Type filters ── */
 const TYPE_PARAMS={all:"",reddit:" site:reddit.com",article:"&tbm=nws",pdf:" filetype:pdf",video:"&tbm=vid",images:"&tbm=isch"};
 const TYPE_L={all:"All",reddit:"Reddit",article:"News",pdf:"PDF",video:"Video",images:"Images"};
-const TYPE_ICON={all:"──",reddit:"r/",article:"📰",pdf:"📄",video:"🎬",images:"🖼"};
 
-/* ── Default links ── */
 const DL=[
   {id:"l1",label:"ChatGPT",url:"https://chatgpt.com",emoji:"🤖",image:""},
   {id:"l2",label:"GitHub",url:"https://github.com",emoji:"💻",image:""},
@@ -55,7 +47,6 @@ const DL=[
   {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
 ];
 
-/* ── Default state ── */
 const DS={
   theme:"slate",searchEngine:"google",aiProvider:"perplexity",
   links:DL,glassOpacity:0.04,searchType:"all",
@@ -63,11 +54,8 @@ const DS={
 };
 let state={...DS},linkId=100;
 
-/* ══════════════════════════════════════════════════
-   STORAGE
-   ══════════════════════════════════════════════════ */
+/* ── Storage ── */
 const SYS="hz",BG_KEY="hz_bg";
-
 async function loadState(){
   try{
     const s=await chrome.storage.sync.get([SYS]);
@@ -78,7 +66,6 @@ async function loadState(){
     if(b[BG_KEY])state.bg=b[BG_KEY];
   }catch{try{const b=localStorage.getItem(BG_KEY);if(b)state.bg=b}catch{}}
 }
-
 function saveState(){
   const o={theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
     links:state.links,glassOpacity:state.glassOpacity,searchType:state.searchType,
@@ -89,9 +76,7 @@ function saveState(){
   else{try{chrome.storage.local.remove(BG_KEY)}catch{}}
 }
 
-/* ══════════════════════════════════════════════════
-   CLOCK
-   ══════════════════════════════════════════════════ */
+/* ── Clock ── */
 function greet(){return["good morning","good afternoon","good evening","good night"][Math.min(Math.floor(new Date().getHours()/6),3)]}
 function updateClock(){
   const n=new Date();
@@ -100,9 +85,7 @@ function updateClock(){
   document.getElementById("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 }
 
-/* ══════════════════════════════════════════════════
-   WEATHER
-   ══════════════════════════════════════════════════ */
+/* ── Weather ── */
 async function fetchWeather(){
   try{
     const p=await(await fetch(`https://api.weather.gov/points/${LAT},${LON}`)).json();
@@ -129,9 +112,7 @@ function wi(f,d){
   return d?"☀️":"🌙";
 }
 
-/* ══════════════════════════════════════════════════
-   THEME
-   ══════════════════════════════════════════════════ */
+/* ── Theme ── */
 function applyTheme(theme){
   state.theme=theme;const root=document.documentElement;root.classList.remove("has-bg");
   if(theme==="modern"&&!state.bg){swModern();saveState();return}
@@ -155,9 +136,7 @@ function applyCustomTheme(){
 function lighten(h,p){const[r,g,b]=hexToRgb(h);const m=c=>Math.round(c+(255-c)*p/100);return`#${m(r).toString(16).padStart(2,"0")}${m(g).toString(16).padStart(2,"0")}${m(b).toString(16).padStart(2,"0")}`}
 function darken(h,p){const[r,g,b]=hexToRgb(h);const m=c=>Math.round(c*(1-p/100));return`#${m(r).toString(16).padStart(2,"0")}${m(g).toString(16).padStart(2,"0")}${m(b).toString(16).padStart(2,"0")}`}
 
-/* ══════════════════════════════════════════════════
-   GLASS / BG
-   ══════════════════════════════════════════════════ */
+/* ── Glass / BG ── */
 function applyGlassOpacity(val){state.glassOpacity=parseFloat(val);document.documentElement.style.setProperty("--surface-opacity",String(state.glassOpacity));saveState()}
 function analyze(img){const c=document.createElement("canvas");c.width=c.height=1;c.getContext("2d").drawImage(img,0,0,1,1);const[r,g,b]=c.getContext("2d").getImageData(0,0,1,1).data;return luminance(r,g,b)}
 function applyBg(data){
@@ -177,28 +156,50 @@ function clearBg(){
   delete state.bg;saveState();
 }
 
-/* ══════════════════════════════════════════════════
-   LINKS
-   ══════════════════════════════════════════════════ */
+/* ── Links ── */
 function renderLinks(){
   document.getElementById("links").innerHTML=state.links.map(l=>`<a href="${l.url}" class="link-item" title="${l.url}"><span class="link-icon">${l.image?`<img src="${l.image}" alt="" loading="lazy">`:l.emoji||"🌐"}</span><span class="link-label">${l.label}</span></a>`).join("");
 }
 
 /* ══════════════════════════════════════════════════
-   DROPDOWN + FILTER BAR
+   INTEGRATED SEARCH BAR + DROPDOWN
    ══════════════════════════════════════════════════ */
-function target(){return state.searchType==="ai"?"ai":"web"}
+
+function isAI(){return state.searchType==="ai"}
+function currentLabel(){
+  if(isAI())return AI_L[state.aiProvider]||"AI";
+  return state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
+}
+function currentIcon(){
+  return isAI()?"🤖":"🌐";
+}
+
+function updateModeTag(){
+  const tag=document.getElementById("modeTag");
+  if(tag)tag.textContent=currentIcon()+" "+currentLabel();
+}
+function updateTagVisibility(){
+  const i=document.getElementById("searchInput");
+  if(i.value.length>0)i.classList.add("on-input");
+  else i.classList.remove("on-input");
+}
 
 function renderDropdown(){
   const pop=document.getElementById("selPopover");
   let html="";
-  // Web engines
-  html+=Object.keys(SE).map(k=>`<button class="sel-option${target()==="web"&&state.searchEngine===k?" active":""}" data-kind="web" data-key="${k}" role="option"><span>🌐</span>${k.charAt(0).toUpperCase()+k.slice(1)}<span class="sel-tag">web</span></button>`).join("");
-  html+=`<div class="sel-divider"></div>`;
-  // AI providers
-  html+=Object.keys(AI).map(k=>{
+  // Web group
+  html+=`<div class="sel-group-label">Web</div>`;
+  html+=Object.keys(SE).map(k=>{
+    const active=!isAI()&&state.searchEngine===k;
+    return `<button class="sel-option${active?" active":""}" data-kind="web" data-key="${k}" role="option"><span class="sel-icon">🌐</span><span class="sel-name">${k.charAt(0).toUpperCase()+k.slice(1)}</span><span class="sel-tag">web</span></button>`;
+  }).join("");
+  html+=`<div class="sel-sep"></div>`;
+  // AI group
+  html+=`<div class="sel-group-label">AI Chat</div>`;
+  html+=AI_ORDER.map(k=>{
+    const active=isAI()&&state.aiProvider===k;
     const auto=AI_AUTO.has(k);const tag=auto?"→ auto":"✎ prefill";
-    return `<button class="sel-option${target()==="ai"&&state.aiProvider===k?" active":""}" data-kind="ai" data-key="${k}" role="option"><span>🤖</span>${AI_L[k]}<span class="sel-tag">${tag}</span></button>`;
+    return `<button class="sel-option${active?" active":""}" data-kind="ai" data-key="${k}" role="option"><span class="sel-icon">🤖</span><span class="sel-name">${AI_L[k]}</span><span class="sel-tag">${tag}</span></button>`;
   }).join("");
   pop.innerHTML=html;
   pop.querySelectorAll(".sel-option").forEach(opt=>{
@@ -207,37 +208,22 @@ function renderDropdown(){
       const kind=opt.dataset.kind,key=opt.dataset.key;
       if(kind==="web"){state.searchEngine=key;state.searchType="all";}
       else{state.aiProvider=key;state.searchType="ai";}
-      refreshSearchUI();closeDropdown();
+      refreshUI();closeDropdown();document.getElementById("searchInput").focus();
     });
   });
 }
 
-function refreshSearchUI(){
-  const label=document.getElementById("selLabel");
-  const isAI=state.searchType==="ai";
-  if(isAI){label.textContent=AI_L[state.aiProvider]||"AI";}
-  else{const k=state.searchEngine;label.textContent=k.charAt(0).toUpperCase()+k.slice(1);}
-  renderDropdown();renderFilterBar();updatePlaceholder();
-  saveState();
+function openDropdown(e){document.getElementById("selPopover")?.classList.add("open")}
+function closeDropdown(){document.getElementById("selPopover")?.classList.remove("open")}
+
+function refreshUI(){
+  updateModeTag();renderDropdown();renderFilterBar();updatePlaceholder();saveState();
 }
 
-function toggleDropdown(e){
-  e.stopPropagation();
-  document.getElementById("selPopover").classList.toggle("open");
-}
-function closeDropdown(){document.getElementById("selPopover").classList.remove("open")}
-
-document.addEventListener("click",e=>{
-  const pop=document.getElementById("selPopover");
-  const sel=document.getElementById("searchSelect");
-  if(pop.classList.contains("open")&&!sel.contains(e.target)&&!pop.contains(e.target))closeDropdown();
-});
-
+/* ── Filter bar ── */
 function renderFilterBar(){
   const bar=document.getElementById("filterBar");
-  const isAI=state.searchType==="ai";
-  if(isAI){
-    // AI mode: show hint only
+  if(isAI()){
     bar.classList.remove("visible");
     const hint=document.getElementById("aiModeHint");
     const ap=state.aiProvider;const auto=AI_AUTO.has(ap);
@@ -245,33 +231,32 @@ function renderFilterBar(){
     hint.style.display="";
     return;
   }
-  // Web mode: type chips + AI-free toggle
   const hint=document.getElementById("aiModeHint");hint.style.display="none";
   bar.classList.add("visible");
-  bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${k==="all"?"All":TYPE_ICON[k]}</button>`).join("")+
-    `<span class="filter-chip green${state.aiFreeOn?" active":""}" id="aiFreeChip">🤖✖</span>`;
+  bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
+    `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
   bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
     chip.addEventListener("click",()=>{state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder();});
   });
   document.getElementById("aiFreeChip")?.addEventListener("click",()=>{state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder();});
 }
 
+/* ── Placeholder ── */
 function updatePlaceholder(){
   const i=document.getElementById("searchInput");
-  if(state.searchType==="ai"){
+  if(isAI()){
     i.placeholder=`Ask ${AI_L[state.aiProvider]||"AI"} anything...`;
   }else{
-    const eng=state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
-    let extra="";if(state.aiFreeOn)extra+=" (AI-free)";if(state.searchType!=="all")extra+=` — ${TYPE_L[state.searchType]}`;
+    let extra="";if(state.aiFreeOn)extra+=" AI-free";if(state.searchType!=="all")extra+=` ${TYPE_L[state.searchType]}`;
     i.placeholder=`Search${extra}...`;
   }
 }
 
+/* ── Submit ── */
 function submitSearch(q){
   if(!q)return;
-  if(state.searchType==="ai"){
-    const base=AI[state.aiProvider]||AI.perplexity;
-    window.location.href=base+encodeURIComponent(q);
+  if(isAI()){
+    window.location.href=(AI[state.aiProvider]||AI.perplexity)+encodeURIComponent(q);
     return;
   }
   const base=SE[state.searchEngine]||SE.google;
@@ -321,7 +306,7 @@ function renderSettings(){
     </div>
     <div class="settings-group">
       <label class="settings-label">Default AI Provider</label>
-      <div class="theme-grid">${Object.keys(AI).map(k=>`<button class="engine-btn${state.aiProvider===k?" active":""}" data-ai="${k}">${AI_L[k]}</button>`).join("")}</div>
+      <div class="theme-grid">${AI_ORDER.map(k=>`<button class="engine-btn${state.aiProvider===k?" active":""}" data-ai="${k}">${AI_L[k]}</button>`).join("")}</div>
     </div>
     <div class="settings-group">
       <label class="settings-label">Quick Links</label>
@@ -335,8 +320,8 @@ function renderSettings(){
   if(ci&&ca){ci.addEventListener("input",()=>{state.customBg=ci.value;applyCustomTheme()});ca.addEventListener("input",()=>{state.customAccent=ca.value;applyCustomTheme()})}
   document.getElementById("glassSlider")?.addEventListener("input",e=>applyGlassOpacity(e.target.value/100));
   document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{btn.addEventListener("click",()=>{if(state.bg)clearBg();applyTheme(btn.dataset.theme);renderSettings()})});
-  document.querySelectorAll("#settingsBody .engine-btn[data-engine]").forEach(btn=>{btn.addEventListener("click",()=>{state.searchEngine=btn.dataset.engine;renderSettings();saveState();refreshSearchUI()})});
-  document.querySelectorAll("#settingsBody .engine-btn[data-ai]").forEach(btn=>{btn.addEventListener("click",()=>{state.aiProvider=btn.dataset.ai;renderSettings();saveState();refreshSearchUI()})});
+  document.querySelectorAll("#settingsBody .engine-btn[data-engine]").forEach(btn=>{btn.addEventListener("click",()=>{state.searchEngine=btn.dataset.engine;renderSettings();saveState();refreshUI()})});
+  document.querySelectorAll("#settingsBody .engine-btn[data-ai]").forEach(btn=>{btn.addEventListener("click",()=>{state.aiProvider=btn.dataset.ai;renderSettings();saveState();refreshUI()})});
   document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{const idx=parseInt(ed.dataset.idx);const save=()=>{state.links[idx]={...state.links[idx],emoji:ed.querySelector(".le-emoji").value||"🌐",label:ed.querySelector(".le-label").value||"Link",url:ed.querySelector(".le-url").value||"https://example.com",image:ed.querySelector(".le-img").value||""};saveState();renderLinks()};ed.querySelector(".le-emoji")?.addEventListener("input",save);ed.querySelector(".le-label")?.addEventListener("input",save);ed.querySelector(".le-url")?.addEventListener("input",save);ed.querySelector(".le-img")?.addEventListener("input",save);ed.querySelector(".link-remove")?.addEventListener("click",()=>{state.links.splice(idx,1);saveState();renderLinks();renderSettings()})});
   document.getElementById("addLinkBtn")?.addEventListener("click",()=>{state.links.push({id:`lc${linkId++}`,label:"New Link",url:"https://example.com",emoji:"🌐",image:""});saveState();renderLinks();renderSettings();document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight});
   document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
@@ -369,10 +354,7 @@ document.addEventListener("keydown",e=>{
    ══════════════════════════════════════════════════ */
 (async function boot(){
   await loadState();
-
   if(state.glassOpacity)document.documentElement.style.setProperty("--surface-opacity",String(state.glassOpacity));
-  // If stored searchType is "ai" but there was no aiProvider in older saves, default
-  // migrate: old state.searchMode=="ai" => state.searchType="ai"
   if(state.searchMode&&!state.searchType){state.searchType=state.searchMode==="ai"?"ai":"all";delete state.searchMode;}
   if(!state.aiProvider)state.aiProvider="perplexity";
 
@@ -383,13 +365,30 @@ document.addEventListener("keydown",e=>{
   fetchWeather();setInterval(fetchWeather,1800000);
   renderLinks();
 
-  // Search submit
-  document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(document.getElementById("searchInput").value.trim())});
+  /* ── Search input — integrated mode tag + dropdown ── */
+  const input=document.getElementById("searchInput");
 
-  // Dropdown
-  document.getElementById("searchSelect").addEventListener("click",toggleDropdown);
-  renderDropdown();
-  refreshSearchUI();
+  // Click on input opens dropdown
+  input.addEventListener("focus",openDropdown);
+  input.addEventListener("click",openDropdown);
+
+  // Prevent immediate close when clicking the popover
+  document.getElementById("selPopover").addEventListener("mousedown",e=>e.stopPropagation());
+
+  // ESC and outside-click close
+  document.addEventListener("click",e=>{
+    const pop=document.getElementById("selPopover");
+    const sr=document.getElementById("searchSection");
+    if(pop.classList.contains("open")&&!input.contains(e.target)&&!pop.contains(e.target)&&!sr?.contains(e.target))closeDropdown();
+  });
+
+  // Hide tag while typing
+  input.addEventListener("input",updateTagVisibility);
+
+  // Form submit
+  document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(input.value.trim())});
+
+  renderDropdown();refreshUI();
 
   // Settings
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
