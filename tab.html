@@ -26,8 +26,22 @@
 
     <section class="search-section">
       <form id="searchForm">
-        <input type="text" id="searchInput" placeholder="Search or type a URL..." autofocus />
+        <div class="search-row">
+          <input type="text" id="searchInput" placeholder="Search or type a URL..." autofocus />
+          <div class="mode-toggle">
+            <button type="button" class="mode-btn active" id="modeWeb">🌐</button>
+            <button type="button" class="mode-btn" id="modeAI">🤖</button>
+          </div>
+        </div>
       </form>
+      <div class="ai-chips" id="aiChips">
+        <button type="button" class="ai-chip active" data-ai="chatgpt">ChatGPT</button>
+        <button type="button" class="ai-chip" data-ai="claude">Claude</button>
+        <button type="button" class="ai-chip" data-ai="gemini">Gemini</button>
+        <button type="button" class="ai-chip" data-ai="perplexity">Perplexity</button>
+        <button type="button" class="ai-chip" data-ai="grok">Grok</button>
+        <button type="button" class="ai-chip" data-ai="deepseek">DeepSeek</button>
+      </div>
     </section>
 
     <section class="links" id="links"></section>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Horizon Tab",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "A minimal, beautiful, customizable new tab page — your horizon, your way.",
   "chrome_url_overrides": {
     "newtab": "tab.html"
@@ -11,5 +11,10 @@
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "horizon-tab@rishvanthamsaraj"
+    }
   }
 }
