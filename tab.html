@@ -24,17 +24,33 @@
       <span class="weather-hilo" id="weatherHiLo">H --° L --°</span>
     </section>
 
-    <section class="search-section">
+    <section class="search-section" id="searchSection">
       <form id="searchForm">
         <div class="search-row">
+          <span class="mode-tag" id="modeTag">🌐 Google</span>
           <input type="text" id="searchInput" placeholder="Search..." autofocus spellcheck="false" autocomplete="off" />
-          <div class="search-select-wrap"><span class="mode-tag" id="modeTag">🌐 Google</span></div>
-          <div class="sel-popover" id="selPopover" role="listbox">
-            <!-- populated by JS -->
-          </div>
+          <span class="search-arrow" id="searchArrow">▼</span>
         </div>
       </form>
 
+      <!-- Expandable drawer — reveals on input focus -->
+      <div class="search-drawer" id="searchDrawer">
+        <div class="drawer-section">
+          <div class="drawer-label">Web</div>
+          <div class="drawer-grid" id="drawerWeb">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="drawer-divider"></div>
+        <div class="drawer-section">
+          <div class="drawer-label">AI Chat</div>
+          <div class="drawer-grid" id="drawerAI">
+            <!-- populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter bar (below drawer when open) -->
       <div class="filter-bar" id="filterBar">
         <!-- populated by JS -->
       </div>

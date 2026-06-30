@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v1.9 — Integrated dropdown + text filters
+   Horizon Tab v2.0 — Expandable search drawer
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
@@ -55,7 +55,8 @@ const DS={
 let state={...DS},linkId=100;
 
 /* ── Storage ── */
-const SYS="hz",BG_KEY="hz_bg";
+const SYS="hz",BG_KEY="***";
+
 async function loadState(){
   try{
     const s=await chrome.storage.sync.get([SYS]);
@@ -162,7 +163,7 @@ function renderLinks(){
 }
 
 /* ══════════════════════════════════════════════════
-   INTEGRATED SEARCH BAR + DROPDOWN
+   SEARCH — Expandable drawer
    ══════════════════════════════════════════════════ */
 
 function isAI(){return state.searchType==="ai"}
@@ -170,54 +171,47 @@ function currentLabel(){
   if(isAI())return AI_L[state.aiProvider]||"AI";
   return state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
 }
-function currentIcon(){
-  return isAI()?"🤖":"🌐";
-}
+function currentIcon(){return isAI()?"🤖":"🌐"}
 
+/* ── Tag + drawer open/close ── */
 function updateModeTag(){
   const tag=document.getElementById("modeTag");
   if(tag)tag.textContent=currentIcon()+" "+currentLabel();
 }
-function updateTagVisibility(){
+function tagOnInput(){
   const i=document.getElementById("searchInput");
-  if(i.value.length>0)i.classList.add("on-input");
-  else i.classList.remove("on-input");
+  document.getElementById("modeTag").classList.toggle("hidden",i.value.length>0);
 }
 
-function renderDropdown(){
-  const pop=document.getElementById("selPopover");
-  let html="";
-  // Web group
-  html+=`<div class="sel-group-label">Web</div>`;
-  html+=Object.keys(SE).map(k=>{
-    const active=!isAI()&&state.searchEngine===k;
-    return `<button class="sel-option${active?" active":""}" data-kind="web" data-key="${k}" role="option"><span class="sel-icon">🌐</span><span class="sel-name">${k.charAt(0).toUpperCase()+k.slice(1)}</span><span class="sel-tag">web</span></button>`;
+function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
+function openDrawer(){document.getElementById("searchSection").classList.add("open")}
+function closeDrawer(){document.getElementById("searchSection").classList.remove("open")}
+function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
+
+/* ── Render drawer buttons ── */
+function renderDrawer(){
+  // Web engines
+  document.getElementById("drawerWeb").innerHTML=Object.keys(SE).map(k=>{
+    const act=!isAI()&&state.searchEngine===k;
+    return `<button class="drawer-btn${act?" active":""}" data-kind="web" data-key="${k}"><span class="db-icon">🌐</span><span class="db-name">${k.charAt(0).toUpperCase()+k.slice(1)}</span><span class="db-tag">web</span></button>`;
   }).join("");
-  html+=`<div class="sel-sep"></div>`;
-  // AI group
-  html+=`<div class="sel-group-label">AI Chat</div>`;
-  html+=AI_ORDER.map(k=>{
-    const active=isAI()&&state.aiProvider===k;
+  // AI providers
+  document.getElementById("drawerAI").innerHTML=AI_ORDER.map(k=>{
+    const act=isAI()&&state.aiProvider===k;
     const auto=AI_AUTO.has(k);const tag=auto?"→ auto":"✎ prefill";
-    return `<button class="sel-option${active?" active":""}" data-kind="ai" data-key="${k}" role="option"><span class="sel-icon">🤖</span><span class="sel-name">${AI_L[k]}</span><span class="sel-tag">${tag}</span></button>`;
+    return `<button class="drawer-btn${act?" active":""}" data-kind="ai" data-key="${k}"><span class="db-icon">🤖</span><span class="db-name">${AI_L[k]}</span><span class="db-tag">${tag}</span></button>`;
   }).join("");
-  pop.innerHTML=html;
-  pop.querySelectorAll(".sel-option").forEach(opt=>{
-    opt.addEventListener("click",e=>{
+
+  document.querySelectorAll(".drawer-btn").forEach(btn=>{
+    btn.addEventListener("click",e=>{
       e.stopPropagation();
-      const kind=opt.dataset.kind,key=opt.dataset.key;
+      const kind=btn.dataset.kind,key=btn.dataset.key;
       if(kind==="web"){state.searchEngine=key;state.searchType="all";}
       else{state.aiProvider=key;state.searchType="ai";}
-      refreshUI();closeDropdown();document.getElementById("searchInput").focus();
+      refreshUI();
+      // Don't close drawer — user may want to switch again
     });
   });
-}
-
-function openDropdown(e){document.getElementById("selPopover")?.classList.add("open")}
-function closeDropdown(){document.getElementById("selPopover")?.classList.remove("open")}
-
-function refreshUI(){
-  updateModeTag();renderDropdown();renderFilterBar();updatePlaceholder();saveState();
 }
 
 /* ── Filter bar ── */
@@ -236,12 +230,11 @@ function renderFilterBar(){
   bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
     `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
   bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
-    chip.addEventListener("click",()=>{state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder();});
+    chip.addEventListener("click",()=>{state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
   });
-  document.getElementById("aiFreeChip")?.addEventListener("click",()=>{state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder();});
+  document.getElementById("aiFreeChip")?.addEventListener("click",()=>{state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
 }
 
-/* ── Placeholder ── */
 function updatePlaceholder(){
   const i=document.getElementById("searchInput");
   if(isAI()){
@@ -250,6 +243,10 @@ function updatePlaceholder(){
     let extra="";if(state.aiFreeOn)extra+=" AI-free";if(state.searchType!=="all")extra+=` ${TYPE_L[state.searchType]}`;
     i.placeholder=`Search${extra}...`;
   }
+}
+
+function refreshUI(){
+  updateModeTag();renderDrawer();renderFilterBar();updatePlaceholder();saveState();
 }
 
 /* ── Submit ── */
@@ -346,7 +343,7 @@ document.getElementById("bgUpload").addEventListener("change",e=>{
 
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
-  if(e.key==="Escape"&&document.getElementById("selPopover").classList.contains("open"))closeDropdown();
+  if(e.key==="Escape"&&isDrawerOpen())closeDrawer();
 });
 
 /* ══════════════════════════════════════════════════
@@ -365,30 +362,28 @@ document.addEventListener("keydown",e=>{
   fetchWeather();setInterval(fetchWeather,1800000);
   renderLinks();
 
-  /* ── Search input — integrated mode tag + dropdown ── */
+  /* ── Search: click row toggles drawer, focus opens it ── */
+  const sec=document.getElementById("searchSection");
   const input=document.getElementById("searchInput");
 
-  // Click on input opens dropdown
-  input.addEventListener("focus",openDropdown);
-  input.addEventListener("click",openDropdown);
-
-  // Prevent immediate close when clicking the popover
-  document.getElementById("selPopover").addEventListener("mousedown",e=>e.stopPropagation());
-
-  // ESC and outside-click close
-  document.addEventListener("click",e=>{
-    const pop=document.getElementById("selPopover");
-    const sr=document.getElementById("searchSection");
-    if(pop.classList.contains("open")&&!input.contains(e.target)&&!pop.contains(e.target)&&!sr?.contains(e.target))closeDropdown();
+  // Clicking the search row (anywhere outside input) toggles drawer
+  document.querySelector(".search-row").addEventListener("click",e=>{
+    if(e.target===input||input.contains(e.target)){openDrawer();return}
+    toggleDrawer();
+    if(isDrawerOpen())input.focus();
   });
+  input.addEventListener("focus",openDrawer);
+  input.addEventListener("input",tagOnInput);
 
-  // Hide tag while typing
-  input.addEventListener("input",updateTagVisibility);
+  // Close drawer on outside click
+  document.addEventListener("click",e=>{
+    if(isDrawerOpen()&&!sec.contains(e.target))closeDrawer();
+  });
 
   // Form submit
   document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(input.value.trim())});
 
-  renderDropdown();refreshUI();
+  renderDrawer();refreshUI();
 
   // Settings
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
