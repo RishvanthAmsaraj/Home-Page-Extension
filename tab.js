@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v1.4
+   Horizon Tab v1.5
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
@@ -23,7 +23,7 @@ const DL=[
   {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
 ];
 
-const DS={theme:"slate",searchEngine:"google",links:DL};
+const DS={theme:"slate",searchEngine:"google",links:DL,glassOpacity:0.04};
 let state={...DS},linkId=100;
 
 /* ── Storage ── */
@@ -35,19 +35,17 @@ async function loadState(){
     try{const s=localStorage.getItem("hz");if(s)state={...DS,...JSON.parse(s)}}catch{}
   }
 }
-async function saveState(){
-  const o={theme:state.theme,searchEngine:state.searchEngine,links:state.links,bg:state.bg};
-  try{await chrome.storage.sync.set({hz:o})}catch{try{localStorage.setItem("hz",JSON.stringify(o))}catch{}}
+function saveState(){
+  const o={theme:state.theme,searchEngine:state.searchEngine,links:state.links,bg:state.bg,glassOpacity:state.glassOpacity};
+  try{chrome.storage.sync.set({hz:o})}catch{try{localStorage.setItem("hz",JSON.stringify(o))}catch{}}
 }
 
 /* ── Clock ── */
-function getGreeting(){
-  return["good morning","good afternoon","good evening","good night"][Math.min(Math.floor(new Date().getHours()/6),3)];
-}
+function greet(){return["good morning","good afternoon","good evening","good night"][Math.min(Math.floor(new Date().getHours()/6),3)]}
 function updateClock(){
   const n=new Date();
   document.getElementById("time").textContent=`${n.getHours()%12||12}:${String(n.getMinutes()).padStart(2,"0")} ${n.getHours()>=12?"PM":"AM"}`;
-  document.getElementById("greeting").textContent=getGreeting();
+  document.getElementById("greeting").textContent=greet();
   document.getElementById("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 }
 
@@ -56,19 +54,19 @@ async function fetchWeather(){
   try{
     const p=await(await fetch(`https://api.weather.gov/points/${LAT},${LON}`)).json();
     const f=await(await fetch(p.properties.forecast)).json(),ps=f.properties.periods;
-    const c=ps[0],nxt=ps[1],t=c.temperature,d=c.isDaytime;
-    let hi=nxt&&nxt.isDaytime?nxt.temperature:t,lo=nxt&&!nxt.isDaytime?nxt.temperature:t;
-    if(!d){lo=t;const td=ps[2]&&ps[2].isDaytime?ps[2]:null;hi=td?td.temperature:nxt?nxt.temperature:t}
-    document.getElementById("weatherIcon").textContent=we(c.shortForecast,d);
+    const c=ps[0],nx=ps[1],t=c.temperature,d=c.isDaytime;
+    let hi=nx&&nx.isDaytime?nx.temperature:t,lo=nx&&!nx.isDaytime?nx.temperature:t;
+    if(!d){lo=t;const td=ps[2]&&ps[2].isDaytime?ps[2]:null;hi=td?td.temperature:nx?nx.temperature:t}
+    document.getElementById("weatherIcon").textContent=wi(c.shortForecast,d);
     document.getElementById("weatherTemp").textContent=`${t}°`;
     document.getElementById("weatherDesc").textContent=c.shortForecast;
     document.getElementById("weatherHiLo").textContent=`H ${hi}° L ${lo}°`;
   }catch{document.getElementById("weatherDesc").textContent="unavailable"}
 }
-function we(f,d){
+function wi(f,d){
   const F=f.toLowerCase();
   if(F.includes("sunny")||F.includes("clear"))return d?"☀️":"🌙";
-  if(F.includes("cloudy")||F.includes("overcast"))return"☁️";
+  if(F.includes("cloud")||F.includes("overcast"))return"☁️";
   if(F.includes("partly"))return d?"⛅":"🌙";
   if(F.includes("rain")||F.includes("shower")||F.includes("drizzle"))return"🌧️";
   if(F.includes("thunder")||F.includes("storm"))return"⛈️";
@@ -78,70 +76,62 @@ function we(f,d){
   return d?"☀️":"🌙";
 }
 
-/* ── Theme application ── */
+/* ── Glass intensity ── */
+function applyGlassOpacity(val){
+  state.glassOpacity=parseFloat(val);
+  document.documentElement.style.setProperty("--surface-opacity",String(state.glassOpacity));
+  saveState();
+}
+
+/* ── Theme ── */
 function applyTheme(theme){
   state.theme=theme;
+  const el=document.documentElement;
+  if(theme==="modern"&&!state.bg){swModern();return}
+  el.setAttribute("data-theme",theme);el.classList.remove("has-bg");
   saveState();
-  if(theme==="modern"&&!state.bg){
-    scheduleModernSwitch();
-  }else{
-    document.documentElement.setAttribute("data-theme",theme);
-  }
+}
+function swModern(){
+  document.documentElement.setAttribute("data-theme",new Date().getHours()>=6&&new Date().getHours()<20?"modern-day":"modern");
 }
 
-function scheduleModernSwitch(){
-  const h=new Date().getHours();
-  document.documentElement.setAttribute("data-theme",h>=6&&h<20?"modern-day":"modern");
-}
-
-/* ─── Smart background: 1×1 brightness analysis ─── */
-function analyzeBrightness(img){
-  const c=document.createElement("canvas");
-  c.width=1;c.height=1;
-  const ctx=c.getContext("2d");
-  ctx.drawImage(img,0,0,1,1);
+/* ── Background ── */
+function analyze(img){
+  const c=document.createElement("canvas");c.width=1;c.height=1;
+  const ctx=c.getContext("2d");ctx.drawImage(img,0,0,1,1);
   const [r,g,b]=ctx.getImageData(0,0,1,1).data;
   return(0.299*r+0.587*g+0.114*b)/255;
 }
-
-function applyBg(bgData){
-  if(!bgData){clearBg();return}
+function applyBg(data){
+  if(!data){clearBg();return}
   const img=new Image();
   img.onload=()=>{
-    const lum=analyzeBrightness(img);
-    const isDark=lum<=0.5;
-    // Use dynamic overlay opacity based on how extreme the brightness is
-    const overlayOpacity=isDark
-      ? Math.min(0.55,0.35+lum*0.4)   // darker image → less overlay needed
-      : Math.min(0.60,0.80-lum*0.3);  // lighter image → more overlay
-    const overlayColor=isDark
-      ? `rgba(0,0,0,${overlayOpacity.toFixed(2)})`
-      : `rgba(255,255,255,${overlayOpacity.toFixed(2)})`;
-
+    const lum=analyze(img),dark=lum<=0.5;
+    const ov=dark?Math.min(.55,.35+lum*.4):Math.min(.60,.80-lum*.3);
+    const oc=dark?`rgba(0,0,0,${ov.toFixed(2)})`:`rgba(255,255,255,${ov.toFixed(2)})`;
     const el=document.getElementById("bgLayer");
-    el.style.setProperty("--user-bg",`url(${bgData})`);
-    el.style.setProperty("--overlay-c",overlayColor);
+    el.style.setProperty("--user-bg",`url(${data})`);
+    el.style.setProperty("--overlay-c",oc);
     el.classList.add("has-image");
     document.getElementById("glassOrb").style.display="none";
-    document.documentElement.setAttribute("data-theme",isDark?"darkbg":"lightbg");
-    state.bg=bgData;
-    saveState();
+    const root=document.documentElement;
+    root.setAttribute("data-theme",dark?"darkbg":"lightbg");
+    root.classList.add("has-bg");
+    state.bg=data;saveState();
   };
   img.onerror=clearBg;
-  img.src=bgData;
+  img.src=data;
 }
-
 function clearBg(){
   const el=document.getElementById("bgLayer");
-  el.classList.remove("has-image");
-  el.style.removeProperty("--user-bg");
-  el.style.removeProperty("--overlay-c");
+  el.classList.remove("has-image");el.style.removeProperty("--user-bg");el.style.removeProperty("--overlay-c");
   document.getElementById("glassOrb").style.display="";
+  const root=document.documentElement;root.classList.remove("has-bg");
   const t=state.theme||"slate";
-  document.documentElement.setAttribute("data-theme",t==="modern"?(new Date().getHours()>=6&&new Date().getHours()<20?"modern-day":"modern"):t);
+  if(t==="modern"){swModern()}else{root.setAttribute("data-theme",t)}
 }
 
-/* ── Links render ── */
+/* ── Links ── */
 function renderLinks(){
   document.getElementById("links").innerHTML=state.links.map(l=>
     `<a href="${l.url}" class="link-item" title="${l.url}">
@@ -161,9 +151,8 @@ function closeSettings(){
   document.getElementById("settingsPanel").classList.remove("open");
   document.getElementById("settingsBackdrop").classList.remove("open");
 }
-
 function renderSettings(){
-  const b=state.bg;
+  const gi=Math.round((state.glassOpacity||0.04)*100);
   document.getElementById("settingsTitle").textContent="Horizon Settings";
   document.getElementById("settingsBody").innerHTML=`
     <div class="settings-group">
@@ -186,10 +175,20 @@ function renderSettings(){
 
     <div class="settings-group">
       <label class="settings-label">Background</label>
-      <p class="settings-hint">Upload your own image. Text and colors adjust automatically.</p>
+      <p class="settings-hint">Upload your own image.</p>
       <div style="display:flex;gap:0.4rem">
         <button class="upload-btn" id="uploadBgBtn">🖼️ Upload Image</button>
-        ${b?'<button class="upload-btn" id="clearBgBtn">✖ Clear</button>':''}
+        ${state.bg?'<button class="upload-btn" id="clearBgBtn">✖ Clear</button>':''}
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label class="settings-label">Glass Intensity</label>
+      <p class="settings-hint">Controls surface transparency for weather, search, and links.</p>
+      <div class="glass-slider-row">
+        <span>◻</span>
+        <input type="range" class="glass-slider" id="glassSlider" min="0" max="15" value="${gi}">
+        <span>◼</span>
       </div>
     </div>
 
@@ -220,7 +219,12 @@ function renderSettings(){
     </div>
   `;
 
-  // Theme buttons
+  // Glass slider
+  document.getElementById("glassSlider")?.addEventListener("input",e=>{
+    applyGlassOpacity(e.target.value/100);
+  });
+
+  // Theme
   document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
       if(state.bg)clearBg();
@@ -229,7 +233,7 @@ function renderSettings(){
     });
   });
 
-  // Engine buttons
+  // Engine
   document.querySelectorAll("#settingsBody .engine-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
       state.searchEngine=btn.dataset.engine;
@@ -237,12 +241,11 @@ function renderSettings(){
     });
   });
 
-  // Link editors
+  // Links
   document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{
     const idx=parseInt(ed.dataset.idx);
     const save=()=>{
-      state.links[idx]={
-        ...state.links[idx],
+      state.links[idx]={...state.links[idx],
         emoji:ed.querySelector(".le-emoji").value||"🌐",
         label:ed.querySelector(".le-label").value||"Link",
         url:ed.querySelector(".le-url").value||"https://example.com",
@@ -269,63 +272,50 @@ function renderSettings(){
   document.getElementById("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings();});
 }
 
-/* ── Background upload with compression ── */
+/* ── Upload ── */
 document.getElementById("bgUpload").addEventListener("change",e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=()=>{
     const img=new Image();
     img.onload=()=>{
-      let q=0.85,w=img.width,h=img.height;
+      let q=.85,w=img.width,h=img.height;
       const MD=1920;
       if(w>MD||h>MD){const R=Math.min(MD/w,MD/h);w=Math.round(w*R);h=Math.round(h*R)}
-      const c=document.createElement("canvas");
-      c.width=w;c.height=h;
+      const c=document.createElement("canvas");c.width=w;c.height=h;
       c.getContext("2d").drawImage(img,0,0,w,h);
-      const comp=(qu)=>{
-        const d=c.toDataURL("image/jpeg",qu);
-        return d.length*0.75>100*1024&&qu>0.1?comp(qu-0.1):d;
-      };
-      applyBg(comp(q));
-      renderSettings();
+      const comp=qu=>{const d=c.toDataURL("image/jpeg",qu);return d.length*.75>100*1024&&qu>.1?comp(qu-.1):d};
+      applyBg(comp(q));renderSettings();
     };
-    img.onerror=()=>{document.querySelector(".settings-hint").textContent="Could not load that image."};
+    img.onerror=()=>{};
     img.src=r.result;
   };
   r.readAsDataURL(f);
   e.target.value="";
 });
 
-/* ── Keyboard ── */
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
 });
 
-/* ── Boot ── */
 (async function boot(){
   await loadState();
 
-  if(state.bg){
-    applyBg(state.bg);
-  }else{
-    applyTheme(state.theme||"slate");
-  }
+  // Apply stored glass opacity
+  if(state.glassOpacity)document.documentElement.style.setProperty("--surface-opacity",String(state.glassOpacity));
 
-  updateClock();
-  setInterval(updateClock,1000);
+  if(state.bg)applyBg(state.bg);
+  else applyTheme(state.theme||"slate");
 
-  fetchWeather();
-  setInterval(fetchWeather,1800000);
-
+  updateClock();setInterval(updateClock,1000);
+  fetchWeather();setInterval(fetchWeather,1800000);
   renderLinks();
 
   document.getElementById("searchForm").addEventListener("submit",e=>{
     e.preventDefault();
     const q=document.getElementById("searchInput").value.trim();if(!q)return;
     const h=q.includes(".")&&!q.includes(" "),u=h&&(q.startsWith("http://")||q.startsWith("https://")||q.startsWith("localhost"));
-    window.location.href=u
-      ?(q.startsWith("http")?q:`https://${q}`)
-      :(SE[state.searchEngine]||SE.google)+encodeURIComponent(q);
+    window.location.href=u?(q.startsWith("http")?q:`https://${q}`):(SE[state.searchEngine]||SE.google)+encodeURIComponent(q);
   });
 
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
