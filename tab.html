@@ -10,7 +10,7 @@
   <div class="bg-layer" id="bgLayer"></div>
   <div class="glass-orb" id="glassOrb"></div>
 
-  <div class="container">
+  <div class="container" id="container">
     <section class="hero">
       <p class="greeting" id="greeting">good morning</p>
       <h1 class="time" id="time">--:--</h1>
@@ -33,8 +33,10 @@
         </div>
       </form>
 
-      <!-- Expandable drawer — reveals on input focus -->
-      <div class="search-drawer-wrap">
+      <!-- Everything below expands in one unified flex column -->
+      <div class="search-body" id="searchBody">
+
+        <!-- Drawer: web engines + AI providers -->
         <div class="search-drawer" id="searchDrawer">
           <div class="drawer-section">
             <div class="drawer-label">Web</div>
@@ -50,18 +52,21 @@
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Filter bar (below drawer when open) -->
-      <div class="filter-bar" id="filterBar">
-        <!-- populated by JS -->
-      </div>
+        <!-- Filter chips -->
+        <div class="filter-bar" id="filterBar">
+          <!-- populated by JS -->
+        </div>
 
-      <p class="ai-hint" id="aiModeHint"></p>
+        <p class="ai-hint" id="aiModeHint"></p>
+
+      </div><!-- /search-body -->
     </section>
 
+    <!-- Links — always visible, pushes down when search-body expands -->
     <section class="links" id="links"></section>
-  </div>
+
+  </div><!-- /container -->
 
   <button class="settings-toggle" id="settingsToggle" title="Customize">⚙️</button>
 

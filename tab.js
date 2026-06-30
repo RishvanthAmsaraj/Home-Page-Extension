@@ -217,15 +217,15 @@ function renderDrawer(){
 /* ── Filter bar ── */
 function renderFilterBar(){
   const bar=document.getElementById("filterBar");
+  const hint=document.getElementById("aiModeHint");
   if(isAI()){
     bar.classList.remove("visible");
-    const hint=document.getElementById("aiModeHint");
     const ap=state.aiProvider;const auto=AI_AUTO.has(ap);
     hint.textContent=auto?"Opens directly to your query results":"Prefills the chat input — press Enter to send";
-    hint.style.display="";
+    hint.classList.add("active");
     return;
   }
-  const hint=document.getElementById("aiModeHint");hint.style.display="none";
+  hint.classList.remove("active");
   bar.classList.add("visible");
   bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
     `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
