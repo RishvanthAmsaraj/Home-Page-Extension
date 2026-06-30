@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v1.2.1 — Settings & Customization
+   Horizon Tab v1.3
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
@@ -26,7 +26,7 @@ const DL=[
 const DS={theme:"black",searchEngine:"google",links:DL};
 let state={...DS},linkId=100;
 
-// ── Storage ──
+/* ── Storage ── */
 async function loadState(){
   try{
     const s=await chrome.storage.sync.get(["hz"]);
@@ -40,19 +40,18 @@ async function saveState(){
   try{await chrome.storage.sync.set({hz:o})}catch{try{localStorage.setItem("hz",JSON.stringify(o))}catch{}}
 }
 
-// ── Clock ──
+/* ── Clock ── */
 function getGreeting(){
-  const h=new Date().getHours();
-  return h<12?"good morning":h<17?"good afternoon":h<21?"good evening":"good night";
+  return["good morning","good afternoon","good evening","good night"][Math.min(Math.floor(new Date().getHours()/6),3)];
 }
 function updateClock(){
-  const n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,"0");
-  document.getElementById("time").textContent=`${h%12||12}:${m} ${h>=12?"PM":"AM"}`;
+  const n=new Date();
+  document.getElementById("time").textContent=`${n.getHours()%12||12}:${String(n.getMinutes()).padStart(2,"0")} ${n.getHours()>=12?"PM":"AM"}`;
   document.getElementById("greeting").textContent=getGreeting();
   document.getElementById("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
 }
 
-// ── Weather ──
+/* ── Weather ── */
 async function fetchWeather(){
   try{
     const p=await(await fetch(`https://api.weather.gov/points/${LAT},${LON}`)).json();
@@ -60,13 +59,13 @@ async function fetchWeather(){
     const c=ps[0],nxt=ps[1],t=c.temperature,d=c.isDaytime;
     let hi=nxt&&nxt.isDaytime?nxt.temperature:t,lo=nxt&&!nxt.isDaytime?nxt.temperature:t;
     if(!d){lo=t;const td=ps[2]&&ps[2].isDaytime?ps[2]:null;hi=td?td.temperature:nxt?nxt.temperature:t}
-    document.getElementById("weatherIcon").textContent=weatherEmoji(c.shortForecast,d);
+    document.getElementById("weatherIcon").textContent=we(c.shortForecast,d);
     document.getElementById("weatherTemp").textContent=`${t}°`;
     document.getElementById("weatherDesc").textContent=c.shortForecast;
     document.getElementById("weatherHiLo").textContent=`H ${hi}° L ${lo}°`;
   }catch{document.getElementById("weatherDesc").textContent="unavailable"}
 }
-function weatherEmoji(f,d){
+function we(f,d){
   const F=f.toLowerCase();
   if(F.includes("sunny")||F.includes("clear"))return d?"☀️":"🌙";
   if(F.includes("cloudy")||F.includes("overcast"))return"☁️";
@@ -79,7 +78,65 @@ function weatherEmoji(f,d){
   return d?"☀️":"🌙";
 }
 
-// ── Links render ──
+/* ── Theme application ── */
+function applyTheme(theme){
+  state.theme=theme;
+  document.documentElement.setAttribute("data-theme",theme);
+  saveState();
+  // Update Modern mode's day/night watcher
+  if(theme==="modern")scheduleModernSwitch();
+}
+
+function scheduleModernSwitch(){
+  // Use isDaytime from weather or sun calc
+  const h=new Date().getHours();
+  const isDay=h>=6&&h<20; // rough 6am-8pm
+  document.documentElement.setAttribute("data-theme",isDay?"modern-day":"modern");
+}
+
+/* ─── Background brightness analysis and overlay ─── */
+function getOverlayFromImage(img){
+  // Sample a 1x1 of the image to estimate brightness
+  const c=document.createElement("canvas");
+  c.width=1;c.height=1;
+  const ctx=c.getContext("2d");
+  ctx.drawImage(img,0,0,1,1);
+  const [r,g,b]=ctx.getImageData(0,0,1,1).data;
+  // Relative luminance: 0.299R + 0.587G + 0.114B
+  const lum=(0.299*r+0.587*g+0.114*b)/255;
+  return lum>0.5
+    ? {overlay:"rgba(255,255,255,0.65)",textTheme:"lightbg"}
+    : {overlay:"rgba(0,0,0,0.55)",textTheme:"darkbg"};
+}
+
+function applyBg(bgData){
+  if(!bgData){clearBg();return}
+  const img=new Image();
+  img.onload=()=>{
+    const {overlay,textTheme}=getOverlayFromImage(img);
+    const el=document.getElementById("bgLayer");
+    el.style.setProperty("--user-bg",`url(${bgData})`);
+    el.style.setProperty("--overlay-c",overlay);
+    el.classList.add("has-image");
+    document.getElementById("glassOrb").style.display="none";
+    document.documentElement.setAttribute("data-theme",textTheme);
+    state.bg=bgData;
+    saveState();
+  };
+  img.onerror=()=>{clearBg()};
+  img.src=bgData;
+}
+function clearBg(){
+  const el=document.getElementById("bgLayer");
+  el.classList.remove("has-image");
+  el.style.removeProperty("--user-bg");
+  el.style.removeProperty("--overlay-c");
+  document.getElementById("glassOrb").style.display="";
+  // Revert to saved theme
+  applyTheme(state.theme||"black");
+}
+
+/* ── Links render ── */
 function renderLinks(){
   document.getElementById("links").innerHTML=state.links.map(l=>
     `<a href="${l.url}" class="link-item" title="${l.url}">
@@ -89,24 +146,7 @@ function renderLinks(){
   ).join("");
 }
 
-// ── Background ──
-function applyBg(bgData){
-  state.bg=bgData;saveState();
-  const bl=document.getElementById("bgLayer"),go=document.getElementById("glassOrb");
-  if(bgData){
-    bl.style.setProperty("--user-bg",`url(${bgData})`);
-    bl.style.setProperty("--user-overlay","rgba(0,0,0,0.55)");
-    bl.classList.add("has-image");
-    go.style.display="none";
-  }else{
-    bl.classList.remove("has-image");
-    bl.style.removeProperty("--user-bg");
-    bl.style.removeProperty("--user-overlay");
-    go.style.display="";
-  }
-}
-
-// ── Settings panel ──
+/* ── Settings panel ── */
 function openSettings(){
   document.getElementById("settingsPanel").classList.add("open");
   document.getElementById("settingsBackdrop").classList.add("open");
@@ -117,9 +157,11 @@ function closeSettings(){
   document.getElementById("settingsBackdrop").classList.remove("open");
 }
 
-// ── Settings content render ──
+const THUMB_MAX_BYTES=100*1024; // 100KB — chrome.storage.sync limit
+
 function renderSettings(){
   const b=state.bg;
+  document.getElementById("settingsTitle").textContent="Horizon Settings";
   document.getElementById("settingsBody").innerHTML=`
     <div class="settings-group">
       <label class="settings-label">Theme</label>
@@ -133,15 +175,15 @@ function renderSettings(){
         <button class="theme-btn${state.theme==="navy"?" active":""}" data-theme="navy">
           <span class="theme-swatch" style="background:#001E44"></span>Navy
         </button>
-        <button class="theme-btn${state.theme==="amber"?" active":""}" data-theme="amber">
-          <span class="theme-swatch" style="background:#ff6200;border:1px solid rgba(255,255,255,0.3)"></span>Amber
+        <button class="theme-btn${state.theme==="modern"?" active":""}" data-theme="modern">
+          <span class="theme-swatch" style="background:linear-gradient(135deg,#0a0a0a 50%,#f8f6f0 50%);border:1px solid #666"></span>Modern
         </button>
       </div>
     </div>
 
     <div class="settings-group">
       <label class="settings-label">Background</label>
-      <p class="settings-hint">Upload your own image, or clear to use theme gradients.</p>
+      <p class="settings-hint" id="bgHint">Upload your own image. Large files will be compressed to 100 KB.</p>
       <div style="display:flex;gap:0.4rem">
         <button class="upload-btn" id="uploadBgBtn">🖼️ Upload Image</button>
         ${b?'<button class="upload-btn" id="clearBgBtn">✖ Clear</button>':''}
@@ -178,10 +220,10 @@ function renderSettings(){
   // Theme buttons
   document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
-      state.theme=btn.dataset.theme;
-      document.documentElement.setAttribute("data-theme",state.theme);
+      applyTheme(btn.dataset.theme);
+      // If we had a custom bg, clear it
+      if(state.bg)clearBg();
       renderSettings();
-      saveState();
     });
   });
 
@@ -189,8 +231,7 @@ function renderSettings(){
   document.querySelectorAll("#settingsBody .engine-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
       state.searchEngine=btn.dataset.engine;
-      renderSettings();
-      saveState();
+      renderSettings();saveState();
     });
   });
 
@@ -223,21 +264,64 @@ function renderSettings(){
     document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight;
   });
 
-  // Upload background
+  // Upload / Clear
   document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
-  // Clear background
-  document.getElementById("clearBgBtn")?.addEventListener("click",()=>{applyBg(null);renderSettings();});
+  document.getElementById("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings();});
 }
 
-// ── Boot ──
+/* ── Background upload with compression ── */
+document.getElementById("bgUpload").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      // Compress to fit in chrome.storage.sync (100KB per item)
+      let quality=0.85,w=img.width,h=img.height;
+      const MAX_DIM=1920;
+      if(w>MAX_DIM||h>MAX_DIM){
+        const ratio=Math.min(MAX_DIM/w,MAX_DIM/h);
+        w=Math.round(w*ratio);h=Math.round(h*ratio);
+      }
+      const c=document.createElement("canvas");
+      c.width=w;c.height=h;
+      const ctx=c.getContext("2d");
+      ctx.drawImage(img,0,0,w,h);
+      // Try compressing until under 90KB (keeping headroom)
+      const compress=(q)=>{
+        const data=c.toDataURL("image/jpeg",q);
+        const bytes=data.length*0.75; // rough base64 → bytes
+        if(bytes>THUMB_MAX_BYTES&&q>0.1)return compress(q-0.1);
+        return data;
+      };
+      const compressed=compress(quality);
+      applyBg(compressed);
+      renderSettings();
+    };
+    img.onerror=()=>{
+      document.getElementById("bgHint").textContent="Could not load that image. Try a different one.";
+    };
+    img.src=r.result;
+  };
+  r.readAsDataURL(f);
+  e.target.value="";
+});
+
+/* ── Keyboard ── */
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
+});
+
+/* ── Boot ── */
 (async function boot(){
   await loadState();
 
-  // Apply theme
-  document.documentElement.setAttribute("data-theme",state.theme);
-
-  // Restore background
-  if(state.bg)applyBg(state.bg);
+  // Apply stored background or theme
+  if(state.bg){
+    applyBg(state.bg);
+  }else{
+    applyTheme(state.theme||"black");
+  }
 
   // Clock
   updateClock();
@@ -250,7 +334,7 @@ function renderSettings(){
   // Quick links
   renderLinks();
 
-  // Search form
+  // Search
   document.getElementById("searchForm").addEventListener("submit",e=>{
     e.preventDefault();
     const q=document.getElementById("searchInput").value.trim();if(!q)return;
@@ -265,17 +349,6 @@ function renderSettings(){
   document.getElementById("settingsClose").addEventListener("click",closeSettings);
   document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
 
-  // Background file upload
-  document.getElementById("bgUpload").addEventListener("change",e=>{
-    const f=e.target.files[0];if(!f)return;
-    const r=new FileReader();
-    r.onload=()=>{applyBg(r.result)};
-    r.readAsDataURL(f);
-    e.target.value="";
-  });
-
-  // Keyboard
-  document.addEventListener("keydown",e=>{
-    if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
-  });
+  // If Modern theme, schedule day/night watcher
+  if(state.theme==="modern"&&!state.bg)scheduleModernSwitch();
 })();

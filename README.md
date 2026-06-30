@@ -11,7 +11,7 @@ Replace your browser's new tab with something that's actually nice to look at �
 - **🔍 Smart search bar** — type to search, paste a URL to navigate directly. Supports Google, DuckDuckGo, Brave, Bing, Startpage, Kagi, Qwant, and SearXNG
 - **🔗 Custom quick links** — add, edit, remove, name, set emoji or **upload your own image** for each link
 - **🎨 4 handcrafted themes** — Black, White, Navy, and Amber (`#ff6200` orange)
-- **🖼️ Custom background** — upload your own image, automatic overlay adjusts for readability
+- **🖼️ Smart background** — upload any image; extension analyzes brightness and switches text/surface colors for best visibility
 - **🥃 Liquid glass effects** — subtle glass-morphism surfaces, floating orb animation
 - **✨ Smooth animations** — everything fades in and transitions buttery smooth
 - **⚡ Blazing fast** — pure vanilla JS, no frameworks, ~35 KB total, zero dependencies
@@ -49,8 +49,8 @@ This means Horizon will open when you launch the browser or click the home butto
 
 Click the **⚙️** button in the bottom-right to open the settings panel:
 
-- **Theme** — Choose from Black, White, Navy, or Amber (orange `#ff6200`)
-- **Background** — Upload your own PNG/JPEG image; elements auto-adjust overlay for readability
+- **Theme** — Choose from Black, White, Navy, or Modern (auto day/night with `#ff6200` orange accents)
+- **Background** — Upload your own PNG/JPEG image; text and elements automatically adjust for maximum readability
 - **Search Engine** — Pick from 8 search engines
 - **Quick Links** — Add/edit/remove links with custom names, emojis, or uploaded images
 
@@ -63,7 +63,7 @@ All settings auto-save and sync.
 | Black  | `#0a0a0a` | True black, high contrast, minimal |
 | White  | `#f5f5f0` | Clean warm paper, light mode |
 | Navy   | `#001E44` | Penn State deep blue elegance |
-| Amber  | `#ff6200` | Signature orange from our projects |
+| Modern | Day/Night | White bg/orange accents by day, dark bg/orange by night — switches automatically |
 
 ## Lightweight
 
