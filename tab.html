@@ -28,35 +28,23 @@
       <form id="searchForm">
         <div class="search-row">
           <input type="text" id="searchInput" placeholder="Search or type a URL..." autofocus spellcheck="false" autocomplete="off" />
-          <div class="mode-toggle">
-            <button type="button" class="mode-btn active" id="modeWeb">🌐</button>
-            <button type="button" class="mode-btn" id="modeAI">🤖</button>
+          <div class="search-select-wrap">
+            <div class="search-select" id="searchSelect" tabindex="0" role="button" aria-haspopup="listbox">
+              <span id="selLabel">Google</span>
+              <span class="sel-arrow">▼</span>
+            </div>
+            <div class="sel-popover" id="selPopover" role="listbox">
+              <!-- populated by JS -->
+            </div>
           </div>
         </div>
       </form>
 
-      <!-- AI provider chips (visible in AI mode) -->
-      <!-- → auto-submit (opens to results), ✎ prefill-only (press Enter) -->
-      <div class="ai-chips" id="aiChips">
-        <button type="button" class="ai-chip active" data-ai="chatgpt">ChatGPT ✎</button>
-        <button type="button" class="ai-chip" data-ai="claude">Claude ✎</button>
-        <button type="button" class="ai-chip" data-ai="gemini">Gemini →</button>
-        <button type="button" class="ai-chip" data-ai="perplexity">Perplexity →</button>
-        <button type="button" class="ai-chip" data-ai="grok">Grok →</button>
-        <button type="button" class="ai-chip" data-ai="deepseek">DeepSeek ✎</button>
+      <div class="filter-bar" id="filterBar">
+        <!-- populated by JS -->
       </div>
-      <p class="ai-hint" id="aiModeHint"></p>
 
-      <!-- Type filter chips + AI-free toggle (visible in Web mode) -->
-      <div class="type-chips" id="typeChips">
-        <button type="button" class="type-chip active" data-type="all">All</button>
-        <button type="button" class="type-chip" data-type="reddit">Reddit</button>
-        <button type="button" class="type-chip" data-type="article">News</button>
-        <button type="button" class="type-chip" data-type="pdf">PDF</button>
-        <button type="button" class="type-chip" data-type="video">Video</button>
-        <button type="button" class="type-chip" data-type="images">Images</button>
-        <button type="button" class="type-chip type-ai-free" id="aiFreeToggle">🤖✖ AI Free</button>
-      </div>
+      <p class="ai-hint" id="aiModeHint"></p>
     </section>
 
     <section class="links" id="links"></section>
