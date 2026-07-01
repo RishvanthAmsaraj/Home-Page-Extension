@@ -123,10 +123,10 @@ body{
 }
 
 /* ── Container */
-.container{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:2rem;width:100%;max-width:640px;animation:fadeUp .8s cubic-bezier(.2,.9,.3,1);gap:1.6rem;transition:gap .4s cubic-bezier(.34,1.56,.64,1)}
+.container{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:2rem;width:100%;max-width:640px;animation:fadeUp .8s cubic-bezier(.2,.9,.3,1)}
 /* Container justify shifts based on drawer state — default centered content */
 .container{justify-content:center;min-height:100dvh}
-.container.drawer-expanded{gap:.35rem}
+
 @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes drift{0%{transform:translate(-18%,-8%) scale(1)}50%{transform:translate(22%,6%) scale(1.12)}100%{transform:translate(-12%,18%) scale(.92)}}
 
@@ -149,7 +149,7 @@ body{
 /* ══════════════════════════════════════════════════
    SEARCH SECTION — premium animated expand
    ══════════════════════════════════════════════════ */
-.search-section{width:100%;display:flex;flex-direction:column;animation:fadeUp .6s .25s both;transition:margin-bottom .4s cubic-bezier(.34,1.56,.64,1)}
+.search-section{width:100%;display:flex;flex-direction:column;animation:fadeUp .6s .25s both;margin-bottom:1rem;transition:margin-bottom .4s cubic-bezier(.34,1.56,.64,1)}
 
 /* ── Search row ── */
 .search-row{position:relative;display:flex;align-items:center;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);
@@ -171,7 +171,7 @@ body{
 .search-body{display:flex;flex-direction:column;transform-origin:top center;transform:scaleY(0);opacity:0;
   transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s cubic-bezier(.4,0,.2,1);
   will-change:transform,opacity;z-index:1;
-  margin-top:-1px; /* overlap search row bottom border */
+  
 }
 .search-section.open .search-body{transform:scaleY(1);opacity:1}
 
@@ -195,16 +195,18 @@ body{
 
 /* ── Continuous glow across row + drawer */
 
-/* ── Search row glow (only when focused + open) ── */
-.search-section.open .search-row{border-radius:var(--r) var(--r) 0 0;border-bottom-color:transparent}
+/* ── Continuous glow — row and drawer fade in together, same box-shadow ── */
+.search-section.open .search-row{border-radius:var(--r) var(--r) 0 0;border-bottom:0}
 .search-section.open:focus-within .search-row{
   box-shadow:0 0 0 2px var(--accent-glow),0 0 32px var(--accent-glow);
-  border-color:var(--accent);
+  border-top-color:var(--accent);
+  border-left-color:var(--accent);
+  border-right-color:var(--accent);
+  border-bottom:none;
 }
-/* Extended glow onto drawer when section is focused */
 .search-section.open:focus-within .search-drawer{
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 28px rgba(0,0,0,0.08),
-    0 0 0 2px var(--accent-glow),0 20px 32px var(--accent-glow);
+  box-shadow:0 0 0 2px var(--accent-glow),0 8px 28px rgba(0,0,0,0.08),
+    inset 0 1px 0 rgba(255,255,255,.04);
   border-color:color-mix(in srgb,var(--accent) 40%,var(--border));
 }
 
@@ -307,7 +309,7 @@ body{
   .hero .time{font-size:2.8rem}
   .links{gap:.4rem}
   .weather{font-size:.72rem;padding:.3rem .75rem}
-  .container{padding:1.25rem;gap:1.25rem}
+  .container{padding:1.25rem}
   .theme-grid{grid-template-columns:1fr}
   .drawer-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
 }

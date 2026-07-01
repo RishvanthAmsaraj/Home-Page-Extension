@@ -211,18 +211,16 @@ function isDrawerOpen(){return document.getElementById("searchSection").classLis
 function openDrawer(){
   const sec=document.getElementById("searchSection");
   sec.classList.add("open");
-  document.getElementById("container").classList.add("drawer-expanded");
-  // Measure drawer height after scaleY animation completes
+  // Wait for scaleY to complete, then measure actual height
   setTimeout(()=>{
     const dd=document.getElementById("searchDrawer");
     if(!dd)return;
     const h=dd.offsetHeight;
-    sec.style.marginBottom=(h+6)+"px";
+    sec.style.marginBottom=h+"px";
   },420);
 }
 function closeDrawer(){
   document.getElementById("searchSection").classList.remove("open");
-  document.getElementById("container").classList.remove("drawer-expanded");
   document.getElementById("searchSection").style.marginBottom="";
 }
 function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
