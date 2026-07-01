@@ -100,7 +100,8 @@ const DL=[
 const DS={
   theme:"slate",searchEngine:"google",aiProvider:"perplexity",
   links:DL,showLinks:true,glassOpacity:0.04,searchType:"all",
-  customBg:"#0d0d0d",customAccent:"#7a8a9a",customLight:false,aiFreeOn:false
+  customBg:"#0d0d0d",customAccent:"#7a8a9a",customLight:false,aiFreeOn:false,
+  aiSignal:false,aiSensitivity:"med",aiHideAbove:0
 };
 let state={...DS},linkId=100;
 
@@ -310,19 +311,6 @@ function renderFilterBar(){
     chip.addEventListener("click",e=>{e.stopPropagation();state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
   });
   document.getElementById("aiFreeChip")?.addEventListener("click",e=>{e.stopPropagation();state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
-
-  // AI Signal settings wiring
-  document.getElementById("aiSignalToggle")?.addEventListener("click",()=>{state.aiSignal=!state.aiSignal;saveState();renderSettings()});
-  document.querySelectorAll("[data-aisens]").forEach(b=>b.addEventListener("click",()=>{state.aiSensitivity=b.dataset.aisens;saveState();renderSettings()}));
-  document.getElementById("aiHideSlider")?.addEventListener("input",e=>{
-    state.aiHideAbove=parseInt(e.target.value,10)||0;
-    document.getElementById("aiHideVal").textContent=state.aiHideAbove||"—";
-    saveState();
-  });
-  document.getElementById("aiHowLink")?.addEventListener("click",e=>{
-    e.preventDefault();
-    showMethodology();
-  });
 }
 
 function updatePlaceholder(){
@@ -485,6 +473,19 @@ function renderSettings(){
   document.getElementById("addLinkBtn")?.addEventListener("click",()=>{state.links.push({id:`lc${linkId++}`,label:"New Link",url:"https://example.com",emoji:"🌐",image:""});saveState();renderLinks();renderSettings();document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight});
   document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
   document.getElementById("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings()});
+
+  // AI Signal settings wiring
+  document.getElementById("aiSignalToggle")?.addEventListener("click",()=>{state.aiSignal=!state.aiSignal;saveState();renderSettings()});
+  document.querySelectorAll("[data-aisens]").forEach(b=>b.addEventListener("click",()=>{state.aiSensitivity=b.dataset.aisens;saveState();renderSettings()}));
+  document.getElementById("aiHideSlider")?.addEventListener("input",e=>{
+    state.aiHideAbove=parseInt(e.target.value,10)||0;
+    document.getElementById("aiHideVal").textContent=state.aiHideAbove||"—";
+    saveState();
+  });
+  document.getElementById("aiHowLink")?.addEventListener("click",e=>{
+    e.preventDefault();
+    showMethodology();
+  });
 }
 
 /* ── Upload ── */
