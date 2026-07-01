@@ -208,8 +208,19 @@ function tagOnInput(){
 }
 
 function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
-function openDrawer(){document.getElementById("searchSection").classList.add("open")}
-function closeDrawer(){document.getElementById("searchSection").classList.remove("open")}
+function openDrawer(){
+  document.getElementById("searchSection").classList.add("open");
+  // Measure drawer height for layout push
+  requestAnimationFrame(()=>{
+    const dd=document.getElementById("searchDrawer");
+    const h=dd.offsetHeight;
+    document.getElementById("searchSection").style.marginBottom=h+"px";
+  });
+}
+function closeDrawer(){
+  document.getElementById("searchSection").classList.remove("open");
+  document.getElementById("searchSection").style.marginBottom="";
+}
 function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
 
 /* ── Tab bar ── */
@@ -217,7 +228,8 @@ function renderTabs(){
   const bar=document.getElementById("drawerTabbar");
   bar.innerHTML='<button class="drawer-tab'+(isAI()?'':' active')+'" data-mode="web">Web Search</button><button class="drawer-tab'+(isAI()?' active':'')+'" data-mode="ai">AI Chat</button>';
   bar.querySelectorAll(".drawer-tab").forEach(tab=>{
-    tab.addEventListener("click",()=>{
+    tab.addEventListener("click",e=>{
+      e.stopPropagation();
       const mode=tab.dataset.mode;
       if(mode==="web"&&isAI()){state.searchType="all";refreshUI()}
       else if(mode==="ai"&&!isAI()){state.searchType="ai";refreshUI()}
@@ -262,9 +274,9 @@ function renderFilterBar(){
     `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
   bar.classList.add("visible");
   bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
-    chip.addEventListener("click",()=>{state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
+    chip.addEventListener("click",e=>{e.stopPropagation();state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
   });
-  document.getElementById("aiFreeChip")?.addEventListener("click",()=>{state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
+  document.getElementById("aiFreeChip")?.addEventListener("click",e=>{e.stopPropagation();state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
 }
 
 function updatePlaceholder(){
@@ -407,9 +419,12 @@ document.addEventListener("keydown",e=>{
   input.addEventListener("focus",openDrawer);
   input.addEventListener("input",tagOnInput);
 
-  // Close drawer on outside click
+  // Close drawer on outside click — ignore clicks *inside* the drawer
   document.addEventListener("click",e=>{
-    if(isDrawerOpen()&&!sec.contains(e.target))closeDrawer();
+    if(isDrawerOpen()&&!sec.contains(e.target)){
+      // Only close if not clicking inside the search-section
+      closeDrawer();
+    }
   });
 
   // Form submit

@@ -148,10 +148,12 @@ body{
 /* ══════════════════════════════════════════════════
    SEARCH SECTION — premium animated expand
    ══════════════════════════════════════════════════ */
-.search-section{width:100%;display:flex;flex-direction:column;animation:fadeUp .6s .25s both}
+.search-section{width:100%;display:flex;flex-direction:column;animation:fadeUp .6s .25s both;transition:margin-bottom .4s cubic-bezier(.34,1.56,.64,1)}
 
 /* ── Search row ── */
-.search-row{position:relative;display:flex;align-items:center;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);transition:border-radius .35s cubic-bezier(.34,1.56,.64,1),border-color .25s,box-shadow .35s,background .35s;backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px))}
+.search-row{position:relative;display:flex;align-items:center;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);
+  transition:border-radius .35s cubic-bezier(.34,1.56,.64,1),border-color .25s,box-shadow .35s .05s,background .35s;
+  z-index:2}
 .search-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow),0 0 24px var(--accent-glow)}
 
 .mode-tag{flex-shrink:0;font-size:.72rem;font-weight:500;color:var(--accent);background:var(--surface-active-rgba);padding:.06rem .4rem;border-radius:5px;white-space:nowrap;line-height:1.6;margin-left:.7rem;transition:opacity .25s,transform .2s;display:flex;align-items:center;gap:.25rem}
@@ -161,17 +163,24 @@ body{
 #searchInput{flex:1;padding:.85rem .7rem;font-size:.92rem;font-family:inherit;background:transparent;border:none;color:var(--text);outline:none;min-width:0}
 #searchInput::placeholder{color:var(--text-dim);opacity:.45}
 
-.search-arrow{flex-shrink:0;font-size:.45rem;color:var(--text-muted);margin-right:.85rem;transition:transform .35s cubic-bezier(.34,1.56,.64,1);opacity:.45;pointer-events:none}
+.search-arrow{flex-shrink:0;font-size:.45rem;color:var(--text-muted);margin-right:.85rem;transition:transform .4s cubic-bezier(.34,1.56,.64,1);opacity:.45;pointer-events:none}
 .search-section.open .search-arrow{transform:rotate(180deg)}
 
-/* ── Search body — animates height ── */
-.search-body{display:flex;flex-direction:column;overflow:hidden;max-height:0;opacity:0;
-  transition:max-height .45s cubic-bezier(.34,1.56,.64,1),opacity .3s cubic-bezier(.4,0,.2,1) .05s;
+/* ── Search body — GPU-composited scaleY ── */
+.search-body{display:flex;flex-direction:column;transform-origin:top center;transform:scaleY(0);opacity:0;
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s cubic-bezier(.4,0,.2,1);
+  will-change:transform,opacity;z-index:1;
+  margin-top:-1px; /* overlap search row bottom border */
 }
-.search-section.open .search-body{max-height:600px;opacity:1}
+.search-section.open .search-body{transform:scaleY(1);opacity:1}
 
-/* ── Drawer — seamless with search row ── */
-.search-drawer{padding:0 .6rem .45rem;
+/* ── Layout push for links ── */
+.links{display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem;width:100%;max-width:500px;margin:0;padding:0;animation:fadeUp .6s .3s both}
+
+/* ── Drawer ── */
+.search-drawer{
+  position:relative;
+  padding:0 .6rem .45rem;
   background:var(--surface);
   backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));
   border:0 solid var(--border);
@@ -182,8 +191,19 @@ body{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 28px rgba(0,0,0,0.08);
 }
 .search-section.open .search-drawer{transform:translateY(0);opacity:1}
+
+/* ── Drawer glow pseudo — continuous with search row ── */
+.search-drawer::before{
+  content:'';position:absolute;inset:-1px;border-radius:0 0 var(--r) var(--r);
+  pointer-events:none;z-index:-1;
+  box-shadow:0 0 0 2px var(--accent-glow),0 16px 24px var(--accent-glow);
+  opacity:0;transition:opacity .3s cubic-bezier(.4,0,.2,1);
+}
+.search-section.open:focus-within .search-drawer::before{opacity:1}
+
+/* ── Search row glow (only when focused + open) ── */
 .search-section.open .search-row{border-radius:var(--r) var(--r) 0 0;border-bottom-color:transparent}
-.search-section.open .search-row:focus-within{box-shadow:0 0 0 2px var(--accent-glow),0 0 24px var(--accent-glow)}
+.search-section.open:focus-within .search-row{box-shadow:0 -1px 0 2px var(--accent-glow),0 0 24px var(--accent-glow)}
 
 /* ── Drawer tab bar ── */
 .drawer-tabbar{display:flex;gap:.25rem;padding:.35rem 0 .3rem}
