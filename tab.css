@@ -123,9 +123,10 @@ body{
 }
 
 /* ── Container */
-.container{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:2rem;width:100%;max-width:640px;animation:fadeUp .8s cubic-bezier(.2,.9,.3,1);gap:1.6rem}
+.container{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:2rem;width:100%;max-width:640px;animation:fadeUp .8s cubic-bezier(.2,.9,.3,1);gap:1.6rem;transition:gap .4s cubic-bezier(.34,1.56,.64,1)}
 /* Container justify shifts based on drawer state — default centered content */
 .container{justify-content:center;min-height:100dvh}
+.container.drawer-expanded{gap:.35rem}
 @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes drift{0%{transform:translate(-18%,-8%) scale(1)}50%{transform:translate(22%,6%) scale(1.12)}100%{transform:translate(-12%,18%) scale(.92)}}
 
