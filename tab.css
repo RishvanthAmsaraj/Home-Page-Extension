@@ -149,7 +149,7 @@ body{
 /* ══════════════════════════════════════════════════
    SEARCH SECTION — premium animated expand
    ══════════════════════════════════════════════════ */
-.search-section{width:100%;display:flex;flex-direction:column;animation:fadeUp .6s .25s both;margin-bottom:1rem;transition:margin-bottom .4s cubic-bezier(.34,1.56,.64,1)}
+.search-section{position:relative;width:100%;display:flex;flex-direction:column;animation:fadeUp .6s .25s both;margin-bottom:1.25rem;z-index:2}
 
 /* ── Search row ── */
 .search-row{position:relative;display:flex;align-items:center;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);
@@ -170,13 +170,14 @@ body{
 /* ── Search body — GPU-composited scaleY ── */
 .search-body{display:flex;flex-direction:column;transform-origin:top center;transform:scaleY(0);opacity:0;
   transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s cubic-bezier(.4,0,.2,1);
-  will-change:transform,opacity;z-index:1;
-  
+  will-change:transform,opacity;z-index:3;
+  position:absolute;left:-1px;right:-1px;top:100%;
 }
 .search-section.open .search-body{transform:scaleY(1);opacity:1}
 
+
 /* ── Layout push for links ── */
-.links{display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem;width:100%;max-width:500px;margin:0;padding:0;animation:fadeUp .6s .3s both}
+.links{display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem;width:100%;max-width:500px;margin:0;padding:0;animation:fadeUp .6s .3s both;position:relative;z-index:1}
 
 /* ── Drawer ── */
 .search-drawer{

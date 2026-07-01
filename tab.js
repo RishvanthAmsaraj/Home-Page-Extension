@@ -209,19 +209,14 @@ function tagOnInput(){
 
 function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
 function openDrawer(){
-  const sec=document.getElementById("searchSection");
-  sec.classList.add("open");
-  // Wait for scaleY to complete, then measure actual height
-  setTimeout(()=>{
-    const dd=document.getElementById("searchDrawer");
-    if(!dd)return;
-    const h=dd.offsetHeight;
-    sec.style.marginBottom=h+"px";
-  },420);
+  document.getElementById("searchSection").classList.add("open");
+  // Drawer expands absolutely below the search row.
+  // Links stay fixed — no layout push needed.
 }
 function closeDrawer(){
-  document.getElementById("searchSection").classList.remove("open");
-  document.getElementById("searchSection").style.marginBottom="";
+  const sec=document.getElementById("searchSection");
+  sec.classList.remove("open");
+  sec.style.marginBottom=""; // restore resting margin (1rem from CSS)
 }
 function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
 
