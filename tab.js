@@ -27,24 +27,54 @@ const AI_L={perplexity:"Perplexity",grok:"Grok",gemini:"Gemini",chatgpt:"ChatGPT
 const AI_AUTO=new Set(["perplexity","grok","gemini"]);
 const AI_ORDER=["perplexity","grok","gemini","chatgpt","claude","deepseek"];
 
-/* ── SVG Logo Icons ── */
+/* ── SVG Logo Icons ──
+   Brand-accurate single-color (or minimal-multi-color) glyphs sized
+   to a 24×24 grid. Each is one path or a small set of primitive
+   shapes — no large duplicated geometry, no clipping hacks. */
 const LOGOS={
-  // Web search engines
-  google:`<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c5.22-3.6 5.1-11.4.49-14.26H12v4.26h2.06C12.36 4.66 9.87 5 7.5 6.59L12 11.97l3.5-3.38-3.5-3.38L7.5 6.59 12 11.97l-4.5 5.38L12 22l10-9.75z" clip-rule="evenodd"/><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>`,
-  duckduckgo:`<svg viewBox="0 0 24 24"><path fill="#DE5833" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.93 7.36c-.31-.36-.78-.55-1.42-.55-.42 0-.83.1-1.21.31-.16.09-.31.2-.43.33.31.32.49.74.49 1.21 0 .16-.02.32-.07.46-.12.34-.36.62-.69.78-.27.13-.58.18-.93.14-.43-.05-.78-.27-1-.62-.13-.21-.18-.46-.13-.74.06-.36.27-.66.59-.83.16-.09.34-.13.52-.13.06 0 .13 0 .19.01-.13-.13-.28-.23-.46-.31-.4-.16-.86-.15-1.31.05-.43.18-.74.5-.86.9-.12.42-.05.85.21 1.21.27.37.71.59 1.21.59.13 0 .27-.01.41-.04.59-.12 1.07-.43 1.38-.86.18-.25.27-.52.27-.83 0-.27-.08-.51-.21-.73.21-.13.46-.21.74-.21.42 0 .76.13 1 .4.21.23.31.5.31.81 0 .36-.13.66-.4.86-.27.21-.62.27-.97.18-.21-.05-.4-.16-.52-.31-.13-.16-.18-.34-.18-.55 0-.27.13-.52.36-.66-.05 0-.1-.01-.16-.01-.27 0-.5.08-.66.27-.16.18-.21.4-.16.62.05.27.21.46.46.59.21.1.43.13.66.08.36-.07.66-.31.83-.62.18-.31.21-.66.08-1-.13-.36-.4-.62-.74-.74-.05-.02-.11-.04-.17-.05.06-.05.13-.1.21-.14.36-.18.78-.21 1.16-.05.43.18.74.52.83.97.09.43-.05.86-.4 1.16-.18.16-.4.27-.62.34-.36.1-.74.07-1.07-.08-.18-.08-.34-.21-.46-.36.31.46.81.81 1.42.97.36.09.74.09 1.11 0 .81-.21 1.42-.78 1.66-1.55.21-.66.05-1.38-.4-1.93z"/><ellipse cx="8.5" cy="9" rx="1.2" ry="1.4" fill="#FFF"/><ellipse cx="15.5" cy="9" rx="1.2" ry="1.4" fill="#FFF"/></svg>`,
-  brave:`<svg viewBox="0 0 24 24"><path fill="#FB542B" d="M12 1.5L3 6.2v6c0 5.5 3.8 9.5 9 10.3 5.2-.8 9-4.8 9-10.3v-6L12 1.5zm0 2.3l6.6 3.3-1.3 6-5.3 4-5.3-4-1.3-6L12 3.8z"/><path fill="#FF9A4D" d="M12 5.5L9.5 12h-3l3.8 2.7L8.9 19l3.1-2.2 3.1 2.2-1.4-4.3 3.8-2.7h-3L12 5.5z"/></svg>`,
-  bing:`<svg viewBox="0 0 24 24"><path fill="#008373" d="M5 2v18l8 2 7-3V5l-7-2-8-1z"/><path fill="#FFF" d="M11 11.5l4-2.5 1 1.5-3.5 2 4.5 2v2.5l-5.5-3-5 3v-2.5l4.5-2.5z"/><path fill="#0066CC" d="M5 2v18l8 2V11.5L5 13z"/></svg>`,
-  startpage:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#7B68EE"/><circle cx="12" cy="12" r="6" fill="#FFF"/><circle cx="12" cy="12" r="3" fill="#7B68EE"/></svg>`,
-  kagi:`<svg viewBox="0 0 24 24"><path fill="#FFB300" d="M12 1L1 6v8c0 5.5 4.5 9 11 9s11-3.5 11-9V6L12 1z"/><path fill="#FFF" d="M12 4L5 7v6c0 3.5 3 6 7 6s7-2.5 7-6V7l-7-3zm0 3l4 1.7v4.6c0 1.8-1.6 3.2-4 3.2s-4-1.4-4-3.2V8.7L12 7z"/></svg>`,
-  qwant:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#4CC2FF"/><circle cx="12" cy="12" r="7" fill="#FF596A"/><circle cx="12" cy="12" r="3.5" fill="#FFF"/></svg>`,
-  searxng:`<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3" fill="#3056D3"/><path fill="#FFF" d="M7 8h10v1.5H7zm0 3h10v1.5H7zm0 3h7v1.5H7z"/><circle cx="18" cy="14" r="2" fill="#F3C623"/></svg>`,
-  // AI providers
-  perplexity:`<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3" fill="#1F1F1F"/><path fill="#20808D" d="M5 7l4 5-4 5h3l2.5-3 2.5 3h3l-4-5 4-5h-3l-2.5 3-2.5-3H5z"/></svg>`,
-  grok:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#000"/><path fill="#FFF" d="M6 6l4 6-4 6h3l2.5-3.5L14 18h3l-4.5-6L17 6h-3l-2 3-2-3H6z"/></svg>`,
-  gemini:`<svg viewBox="0 0 24 24"><path fill="#4796E3" d="M12 2L14 10 22 12 14 14 12 22 10 14 2 12 10 10z" opacity=".9"/><path fill="#9177C7" d="M12 6L13 11 18 12 13 13 12 18 11 13 6 12 11 11z"/></svg>`,
-  chatgpt:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#10A37F"/><path fill="#FFF" d="M9.5 7.5l-2 5 2 5h2l-1.5-3.5L11.5 7.5h-2zm5 0l2 5-2 5h-2l1.5-3.5L12.5 7.5h2z"/></svg>`,
-  claude:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#D97757"/><path fill="#FFF" d="M12 5l-4 7h3l-3 7 8-9h-3l4-5h-5z"/></svg>`,
-  deepseek:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#4D6BFE"/><path fill="#FFF" d="M8 7.5h2.5l2 3.5L14.5 7.5H17l-3.5 6L17 19.5h-2.5l-2.5-3.5L9.5 19.5H7l3.5-6L7 7.5z"/></svg>`
+  // ── Web search engines ──────────────────────────────────────────
+  // Google "G" — the four-color ring + bar from the current brand mark.
+  google:`<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.5 12.2c0-.7-.1-1.5-.2-2.2H12v4.2h5.9c-.3 1.4-1.1 2.5-2.3 3.3v2.7h3.7c2.2-2 3.4-5 3.4-8z"/><path fill="#34A853" d="M12 23c2.9 0 5.4-1 7.2-2.6l-3.7-2.7c-1 .7-2.3 1.1-3.5 1.1-2.7 0-5-1.8-5.9-4.3H2.3v2.7C4.1 20.5 7.8 23 12 23z"/><path fill="#FBBC05" d="M6.1 14.5c-.2-.6-.4-1.3-.4-2s.1-1.4.4-2V7.7H2.3C1.5 9.1 1 10.5 1 12s.5 2.9 1.3 4.3l3.8-2.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3 .6 4.2 1.6l3.1-3.1C17.4 2.1 14.9 1 12 1 7.8 1 4.1 3.5 2.3 7.7l3.8 2.8c.9-2.5 3.2-4.3 5.9-4.3z"/></svg>`,
+
+  // DuckDuckGo — orange disc with the white "duck head" silhouette.
+  duckduckgo:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#DE5833"/><path fill="#FFF" d="M7 10.5c0-.7.6-1.3 1.3-1.3s1.3.6 1.3 1.3v.6c.4-.3.9-.5 1.4-.5h.5c.3 0 .5.2.5.5s-.2.5-.5.5h-.5c-.8 0-1.4.6-1.4 1.4v1.3c0 .9-.5 1.7-1.3 2-.3.1-.6.2-.9.2-.8 0-1.5-.4-1.9-1-.4-.6-.5-1.4-.3-2.1.2-.7.7-1.2 1.4-1.5.1 0 .2-.1.3-.1v-1.3zm9 0c0-.7.6-1.3 1.3-1.3s1.3.6 1.3 1.3v1.3c.1 0 .2.1.3.1.7.3 1.2.8 1.4 1.5.2.7.1 1.5-.3 2.1-.4.6-1.1 1-1.9 1-.3 0-.6-.1-.9-.2-.8-.3-1.3-1.1-1.3-2v-1.3c0-.8-.6-1.4-1.4-1.4h-.5c-.3 0-.5-.2-.5-.5s.2-.5.5-.5h.5c.5 0 1 .2 1.4.5v-.6z"/><path fill="#FFF" d="M9.5 14.5c-.3.3-.6.5-1 .6-.4.1-.8 0-1.1-.3-.3-.3-.4-.7-.3-1.1.1-.4.4-.7.8-.8.4-.1.9 0 1.2.3.3.3.5.7.4 1.3z"/></svg>`,
+
+  // Brave — lion-head shield in orange.
+  brave:`<svg viewBox="0 0 24 24"><path fill="#FB542B" d="M12 1.5L3 5.4v6.5c0 5.6 4 9.7 9 10.6 5-.9 9-5 9-10.6V5.4L12 1.5z"/><path fill="#FFF" d="M12 4.5L6.7 7.1l.9 4.4L12 14l4.4-2.5.9-4.4L12 4.5z"/><path fill="#FB542B" d="M9.2 13l2.8 1.6 2.8-1.6L12 16.2 9.2 13z"/></svg>`,
+
+  // Bing — teal "b" letterform.
+  bing:`<svg viewBox="0 0 24 24"><path fill="#008373" d="M3 3l9 2.2v15.6L3 18.5V3z"/><path fill="#0066CC" d="M12 5.2l9-2.2v15.6l-9 2.4V5.2z"/><path fill="#FFF" d="M14.5 9.8c1.6-.5 3.2.3 3.6 1.8.4 1.5-.5 3-2.1 3.5l-2.4.7-1.5-1.4 2.4-.6zm-3 4.7l1.5 1.4-1.2.4-1.8-.4 1.5-1.4z" opacity=".95"/></svg>`,
+
+  // Startpage — three concentric rings (target).
+  startpage:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#7B68EE"/><circle cx="12" cy="12" r="7" fill="none" stroke="#FFF" stroke-width="1.5"/><circle cx="12" cy="12" r="4.2" fill="#FFF"/><circle cx="12" cy="12" r="2" fill="#7B68EE"/></svg>`,
+
+  // Kagi — yellow shield with stylized "K" centered.
+  kagi:`<svg viewBox="0 0 24 24"><path fill="#FFB300" d="M12 1.5L3 5.4v6.4c0 5.4 4.1 9.4 9 10.2 4.9-.8 9-4.8 9-10.2V5.4L12 1.5z"/><path fill="#FFF" d="M8.5 7h2v4.2L14.5 7h2.5l-4.5 5 4.8 5h-2.6L10.5 12.4V17h-2V7z"/></svg>`,
+
+  // Qwant — cyan ring + magenta heart.
+  qwant:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#4CC2FF"/><path fill="#FF596A" d="M12 16.5s-4.5-2.7-4.5-6.2c0-1.8 1.4-3.3 3.2-3.3 1 0 1.9.5 2.3 1.3.4-.8 1.3-1.3 2.3-1.3 1.8 0 3.2 1.5 3.2 3.3 0 3.5-4.5 6.2-4.5 6.2z"/></svg>`,
+
+  // SearXNG — blue card with magnifying glass + "S".
+  searxng:`<svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2.5" fill="#3056D3"/><path fill="#FFF" d="M7 8.5h7v1.6H7zm0 3h7v1.6H7zm0 3h4.5v1.6H7z"/><circle cx="17" cy="15" r="2.6" fill="none" stroke="#F3C623" stroke-width="1.6"/><path stroke="#F3C623" stroke-width="1.6" stroke-linecap="round" d="M19 17l2 2"/></svg>`,
+
+  // ── AI providers ────────────────────────────────────────────────
+  // Perplexity — dark card with the brand teal "perplexity" mark.
+  perplexity:`<svg viewBox="0 0 24 24"><rect width="24" height="24" rx="3.5" fill="#1F1F1F"/><path fill="none" stroke="#20808D" stroke-width="2" stroke-linecap="round" d="M5 8l3.5 4-3.5 4M19 8l-3.5 4 3.5 4M9.5 17l5-10"/></svg>`,
+
+  // Grok — black circle, the white "G" slash from xAI.
+  grok:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#000"/><path fill="#FFF" d="M5 6.5h3l4 5.5V6.5h3v11h-3l-4-5.5v5.5H5v-11z"/></svg>`,
+
+  // Gemini — the four-point star, two-color gradient.
+  gemini:`<svg viewBox="0 0 24 24"><defs><linearGradient id="gG" x1="0" x2="1"><stop offset="0" stop-color="#4796E3"/><stop offset="1" stop-color="#9177C7"/></linearGradient></defs><path fill="url(#gG)" d="M12 2l1.8 8.2L22 12l-8.2 1.8L12 22l-1.8-8.2L2 12l8.2-1.8L12 2z"/></svg>`,
+
+  // ChatGPT — green circle, the spiral "flower" shape.
+  chatgpt:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#10A37F"/><path fill="#FFF" d="M15.4 8.6c.5-1.3.1-2.7-1-3.4-1.1-.8-2.6-.7-3.6.2-1-.9-2.5-1-3.6-.2-1.1.7-1.5 2.1-1 3.4-1.3.5-2 1.7-1.8 3 .2 1.3 1.2 2.3 2.5 2.5.2 1.3 1.2 2.3 2.5 2.5.5 0 1-.1 1.5-.3.5.2 1 .3 1.5.3 1.3-.2 2.3-1.2 2.5-2.5 1.3-.2 2.3-1.2 2.5-2.5.2-1.3-.5-2.5-1.8-3zm-3.4 7c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>`,
+
+  // Claude — orange circle, the Claude "C" mark (asterisk-style).
+  claude:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#D97757"/><path fill="#FFF" d="M16.4 8.5c-.6-.9-1.6-1.5-2.7-1.5H11c-.4 0-.8.1-1.1.3-.3-.5-.9-.8-1.5-.8-1 0-1.8.8-1.8 1.8 0 .4.1.7.3 1-.6.6-1 1.5-1 2.4 0 1.9 1.5 3.4 3.4 3.4.6 0 1.2-.2 1.7-.5.5.3 1.1.5 1.7.5 1.9 0 3.4-1.5 3.4-3.4 0-1.4-.8-2.5-2-3 .4-.1.6-.4.6-.7 0-.3-.1-.5-.3-.5zm-5.9 5.5c-.7 0-1.3-.6-1.3-1.3 0-.4.2-.7.4-.9.2.1.5.2.8.2.1.3.2.5.4.7-.1.7-.3 1.3-.3 1.3zm3.2-2c-.4 0-.7-.3-.7-.7s.3-.7.7-.7.7.3.7.7-.3.7-.7.7z"/></svg>`,
+
+  // DeepSeek — blue circle, the "whale" simplified to a stylized D.
+  deepseek:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#4D6BFE"/><path fill="#FFF" d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zm-1 4h2v6h-2V8zm0 7h2v2h-2v-2z"/></svg>`
 };
 
 const AI_FREE_PARAMS={
@@ -234,13 +264,18 @@ function renderTabs(){
   });
 }
 
-/* ── Render drawer grid ── */
+/* ── Render drawer grid ──
+     In AI mode the grid uses the .ai-grid modifier so the 6 providers
+     render as 4-on-top, 2-on-bottom (centered under cols 2-3).
+     The 8 web search engines keep the auto-fill column layout. */
 function renderDrawer(){
   renderTabs();
   const grid=document.getElementById("drawerGrid");
-  const items=isAI()?AI_ORDER.map(k=>[k,AI_L[k],"ai",AI_AUTO.has(k)?"→ auto":"✎ prefill"]):Object.keys(SE).map(k=>[k,k.charAt(0).toUpperCase()+k.slice(1),"web","web"]);
+  const ai=isAI();
+  const items=ai?AI_ORDER.map(k=>[k,AI_L[k],"ai",AI_AUTO.has(k)?"→ auto":"✎ prefill"]):Object.keys(SE).map(k=>[k,k.charAt(0).toUpperCase()+k.slice(1),"web","web"]);
+  grid.classList.toggle("ai-grid",ai);
   grid.innerHTML=items.map(([key,label,kind,tag])=>{
-    const act=(kind==="web"&&!isAI()&&state.searchEngine===key)||(kind==="ai"&&isAI()&&state.aiProvider===key);
+    const act=(kind==="web"&&!ai&&state.searchEngine===key)||(kind==="ai"&&ai&&state.aiProvider===key);
     return `<button class="drawer-btn${act?" active":""}" data-kind="${kind}" data-key="${key}"><span class="db-svg">${svgIcon(key)}</span><span class="db-name">${label}</span><span class="db-tag">${tag}</span></button>`;
   }).join("");
 
