@@ -389,3 +389,39 @@ body{
   .theme-grid{grid-template-columns:1fr}
   .drawer-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   AI Signal — methodology modal
+   ══════════════════════════════════════════════════════════════════ */
+.ai-methodology{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;
+  padding:1rem;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s var(--ease-smooth);
+}
+.ai-methodology.open{opacity:1;pointer-events:auto}
+.ai-methodology-card{
+  background:var(--bg2);
+  border:1px solid var(--border-strong);
+  border-radius:var(--r);
+  width:100%;max-width:540px;max-height:80vh;overflow-y:auto;
+  padding:1.1rem 1.3rem 1.3rem;
+  box-shadow:var(--shadow-hover);
+  transform:translateY(8px) scale(.98);
+  transition:transform .35s var(--ease-spring);
+}
+.ai-methodology.open .ai-methodology-card{transform:translateY(0) scale(1)}
+.ai-methodology-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
+.ai-methodology-head h3{margin:0;font-size:.92rem;font-weight:600;color:var(--text);letter-spacing:-.01em}
+.ai-methodology-head button{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s var(--ease-spring)}
+.ai-methodology-head button:hover{background:var(--surface-hover-rgba);color:var(--text);border-color:var(--accent)}
+.ai-methodology-body{font-size:.78rem;line-height:1.55;color:var(--text-dim)}
+.ai-methodology-body p{margin:.5rem 0}
+.ai-methodology-body ul{padding-left:1.2rem;margin:.4rem 0}
+.ai-methodology-body li{margin:.2rem 0}
+.ai-methodology-body strong{color:var(--text);font-weight:600}
+.ai-methodology-body em{color:var(--text);font-style:italic}
+.ai-methodology-foot{font-size:.7rem;opacity:.65;margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--border)}

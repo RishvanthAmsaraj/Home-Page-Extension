@@ -120,7 +120,8 @@ async function loadState(){
 function saveState(){
   const o={theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
     links:state.links,showLinks:state.showLinks,glassOpacity:state.glassOpacity,searchType:state.searchType,
-    customBg:state.customBg,customAccent:state.customAccent,customLight:state.customLight,aiFreeOn:state.aiFreeOn};
+    customBg:state.customBg,customAccent:state.customAccent,customLight:state.customLight,aiFreeOn:state.aiFreeOn,
+    aiSignal:state.aiSignal,aiSensitivity:state.aiSensitivity,aiHideAbove:state.aiHideAbove};
   const bg=state.bg;delete o.bg;
   try{chrome.storage.sync.set({[SYS]:o})}catch{try{localStorage.setItem(SYS,JSON.stringify(o))}catch{}}
   if(bg){try{chrome.storage.local.set({[BG_KEY]:bg})}catch{try{localStorage.setItem(BG_KEY,bg)}catch{}}}
@@ -309,6 +310,19 @@ function renderFilterBar(){
     chip.addEventListener("click",e=>{e.stopPropagation();state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
   });
   document.getElementById("aiFreeChip")?.addEventListener("click",e=>{e.stopPropagation();state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
+
+  // AI Signal settings wiring
+  document.getElementById("aiSignalToggle")?.addEventListener("click",()=>{state.aiSignal=!state.aiSignal;saveState();renderSettings()});
+  document.querySelectorAll("[data-aisens]").forEach(b=>b.addEventListener("click",()=>{state.aiSensitivity=b.dataset.aisens;saveState();renderSettings()}));
+  document.getElementById("aiHideSlider")?.addEventListener("input",e=>{
+    state.aiHideAbove=parseInt(e.target.value,10)||0;
+    document.getElementById("aiHideVal").textContent=state.aiHideAbove||"—";
+    saveState();
+  });
+  document.getElementById("aiHowLink")?.addEventListener("click",e=>{
+    e.preventDefault();
+    showMethodology();
+  });
 }
 
 function updatePlaceholder(){
@@ -346,6 +360,48 @@ function submitSearch(q){
    ══════════════════════════════════════════════════ */
 function openSettings(){document.getElementById("settingsPanel").classList.add("open");document.getElementById("settingsBackdrop").classList.add("open");renderSettings()}
 function closeSettings(){document.getElementById("settingsPanel").classList.remove("open");document.getElementById("settingsBackdrop").classList.remove("open")}
+
+/* ── Methodology modal — shown when the user taps the "methodology"
+     link in the AI Signal section of settings. We open a lightweight
+     modal on top of the settings panel with full disclosure. */
+function showMethodology(){
+  let modal=document.getElementById("aiMethodologyModal");
+  if(!modal){
+    modal=document.createElement("div");
+    modal.id="aiMethodologyModal";
+    modal.className="ai-methodology";
+    modal.innerHTML=`
+      <div class="ai-methodology-card">
+        <div class="ai-methodology-head">
+          <h3>How AI Signal works</h3>
+          <button type="button" id="aiMethodologyClose" aria-label="Close">✕</button>
+        </div>
+        <div class="ai-methodology-body">
+          <p><strong>What it is.</strong> A client-side "smell test" for AI-flavored writing. Every score is an <em>estimate</em>, not a verdict.</p>
+          <p><strong>What it looks at.</strong> Each search result's title and snippet (the text Google / DuckDuckGo / Brave already shows you), plus the URL shape. We never fetch the article body — your browsing history stays yours.</p>
+          <p><strong>Three signals, combined.</strong></p>
+          <ul>
+            <li><strong>Text patterns</strong> (65% weight) — weighted lexicon of 30+ AI-isms ("delve into", "navigate the complexities", "in today's digital landscape", "it's important to note", etc.), plus sentence-length uniformity and em-dash density.</li>
+            <li><strong>Author / byline</strong> (15% weight) — looks for named humans ("By Jane Smith") in the snippet; penalizes self-disclosure ("AI-generated").</li>
+            <li><strong>Domain signals</strong> (20% weight) — URL shape (TLD, hyphen slug, date-stamped path), with a small whitelist of known human-publication outlets (NYT, Atlantic, Wired, etc.) that override the score downward.</li>
+          </ul>
+          <p><strong>Calibration.</strong> Three sensitivities — Low (only obvious cases, multiplier 0.55), Medium (default, 1.0), High (sensitive, 1.35). The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.</p>
+          <p><strong>Hide-above mode.</strong> When you set a hide threshold, results meeting/exceeding that score collapse to a single hover-to-expand line. We don't delete them from the DOM (that would break SERP pagination). Hover any collapsed result to expand it for that moment.</p>
+          <p><strong>Per-result dismissal.</strong> Every badge has a "✕" that hides it for that domain. Your dismissed domains persist in chrome.storage.sync and never show the badge again.</p>
+          <p><strong>What it will NOT do.</strong> It will not catch lightly-edited AI text. It will not catch a human who happens to write in a corporate / listicle style. It will not give you a definitive "this is AI" answer. Anyone who tells you they can do that from a browser extension is lying.</p>
+          <p class="ai-methodology-foot">Score is computed locally. No page is fetched, no data is sent off-device. The whole module adds ~15KB to the extension.</p>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById("aiMethodologyClose").addEventListener("click",()=>{
+      modal.classList.remove("open");
+    });
+    modal.addEventListener("click",(e)=>{
+      if(e.target===modal)modal.classList.remove("open");
+    });
+  }
+  modal.classList.add("open");
+}
 function renderSettings(){
   const gi=Math.round((state.glassOpacity||.04)*100);
   document.getElementById("settingsTitle").textContent="Horizon Settings";
@@ -380,6 +436,34 @@ function renderSettings(){
     <div class="settings-group">
       <label class="settings-label">Default AI Provider</label>
       <div class="theme-grid">${AI_ORDER.map(k=>`<button class="engine-btn${state.aiProvider===k?" active":""}" data-ai="${k}">${AI_L[k]}</button>`).join("")}</div>
+    </div>
+    <div class="settings-group">
+      <label class="settings-label">AI Signal<span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.65"> · beta</span></label>
+      <p class="settings-hint">Heuristic score on Google / DuckDuckGo / Brave search results. Shows an "AI: NN%" badge per result, optionally hides high-AI ones. Pure client-side, no API.</p>
+      <div class="theme-grid" style="grid-template-columns:1fr">
+        <button class="engine-btn${state.aiSignal?" active":""}" id="aiSignalToggle" data-on="${state.aiSignal}">
+          ${state.aiSignal?"✓ Enabled — showing AI % on search results":"○ Off — click to enable"}
+        </button>
+      </div>
+      ${state.aiSignal?`
+        <div style="margin-top:.4rem">
+          <label class="settings-label" style="font-size:.7rem;opacity:.75">Sensitivity</label>
+          <div class="theme-grid" style="grid-template-columns:1fr 1fr 1fr;gap:.3rem">
+            <button class="engine-btn${state.aiSensitivity==="low"?" active":""}" data-aisens="low">Low<br><span style="font-size:.6rem;opacity:.65">only flag obvious</span></button>
+            <button class="engine-btn${state.aiSensitivity==="med"?" active":""}" data-aisens="med">Medium<br><span style="font-size:.6rem;opacity:.65">default</span></button>
+            <button class="engine-btn${state.aiSensitivity==="high"?" active":""}" data-aisens="high">High<br><span style="font-size:.6rem;opacity:.65">sensitive</span></button>
+          </div>
+        </div>
+        <div style="margin-top:.4rem">
+          <label class="settings-label" style="font-size:.7rem;opacity:.75">Hide results above <span id="aiHideVal">${state.aiHideAbove||"\\u2014"}</span>%</label>
+          <div class="glass-slider-row"><span>off</span><input type="range" class="glass-slider" id="aiHideSlider" min="0" max="95" step="5" value="${state.aiHideAbove}"><span>95%</span></div>
+          <p class="settings-hint" style="margin-top:.25rem">Set to 0 to never hide. Hover a hidden result to expand it.</p>
+        </div>
+        <p class="settings-hint" style="margin-top:.4rem">
+          <strong>Heuristic, not a verdict.</strong> False positives are possible — formal human writing can get flagged. Every result can be dismissed (\u2715) per-domain. Read the
+          <a href="#" id="aiHowLink" style="color:var(--accent)">methodology</a> for details.
+        </p>
+      `:""}
     </div>
     <div class="settings-group">
       <label class="settings-label">Quick Links</label>

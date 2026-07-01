@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html><body>
+<h1>Debug</h1>
+<div id="out"></div>
+<script>
+const out = document.getElementById('out');
+function log(m) { out.innerHTML += '<pre>'+m+'</pre>'; }
+log('hostname: '+location.hostname);
+log('href: '+location.href);
+try {
+  Object.defineProperty(window, 'location', { value: new URL('https://www.google.com/search?q=test'), writable: false, configurable: false });
+  log('after spoof, hostname: '+location.hostname);
+} catch(e) {
+  log('defineProperty failed: '+e.message);
+}
+window.chrome = {
+  storage: {
+    sync: {
+      _data: { hz: { aiSignal: true, aiSensitivity: 'high', aiHideAbove: 65 } },
+      get(keys, cb) { log('get called with '+JSON.stringify(keys)); cb(this._data); log('get returned: '+JSON.stringify(this._data)); }
+    }
+  }
+};
+log('chrome stub set');
+</script>
+</body></html>

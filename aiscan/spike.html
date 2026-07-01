@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Horizon AI Signal — Heuristic Spike</title>
+<style>
+  :root{
+    --bg:#0d0d0d; --bg2:#141418;
+    --text:#E8EBED; --text-dim:#8a929a;
+    --border:rgba(255,255,255,.08);
+    --accent:#7a8a9a;
+    --ok:#10B981; --warn:#F59E0B; --bad:#EF4444;
+    --r:14px;
+  }
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;padding:24px;margin:0;max-width:1100px;margin-inline:auto}
+  h1{font-weight:260;letter-spacing:-.02em;font-size:2.2rem;margin:0 0 .3rem}
+  .sub{color:var(--text-dim);font-size:.9rem;margin-bottom:1.5rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+  .card h3{margin:0 0 .5rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim)}
+  .card .label{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-dim);margin-bottom:.4rem}
+  .card .text{font-size:.85rem;line-height:1.55;color:var(--text);max-height:160px;overflow:auto}
+  .row{display:grid;grid-template-columns:90px 1fr 56px;align-items:center;gap:8px;margin-top:.6rem}
+  .row .name{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em}
+  .row .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);position:relative;overflow:hidden}
+  .row .bar .fill{position:absolute;inset:0;border-radius:3px;background:var(--accent);transform-origin:left}
+  .row .pct{font-size:.85rem;font-variant-numeric:tabular-nums;text-align:right;color:var(--text)}
+  .overall{margin-top:.8rem;padding-top:.8rem;border-top:1px solid var(--border)}
+  .overall .pct{font-size:1.5rem;font-weight:300;letter-spacing:-.02em}
+  .badge{display:inline-block;padding:.18rem .55rem;border-radius:100px;font-size:.68rem;font-weight:600;border:1px solid transparent;vertical-align:middle;margin-right:.4rem}
+  .badge.low{background:rgba(16,185,129,.14);color:var(--ok);border-color:rgba(16,185,129,.4)}
+  .badge.med{background:rgba(245,158,11,.14);color:var(--warn);border-color:rgba(245,158,11,.4)}
+  .badge.high{background:rgba(239,68,68,.14);color:var(--bad);border-color:rgba(239,68,68,.4)}
+  .why{margin-top:.6rem;font-size:.7rem;color:var(--text-dim);line-height:1.5}
+  .why code{background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px;font-size:.68rem}
+  .controls{display:flex;gap:8px;align-items:center;margin-bottom:14px;font-size:.8rem;color:var(--text-dim)}
+  .controls button{background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:.3rem .7rem;font-size:.75rem;cursor:pointer;font-family:inherit}
+  .controls button:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+  <h1>Horizon AI Signal — heuristic spike</h1>
+  <div class="sub">A "smell test," not a verdict. Three signals weighted &amp; combined into a 0–100 score.</div>
+  <div class="controls">
+    <span>Calibration:</span>
+    <button data-thr="low">Low (only flag obvious)</button>
+    <button data-thr="med" style="border-color:var(--accent);color:var(--text)">Medium (default)</button>
+    <button data-thr="high">High (sensitive)</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+<script src="score.js"></script>
+<script>
+const SAMPLES=[
+  {label:"HUMAN — Atlantic blog post (snippet)",author:"human",
+   text:"The night before the vote, Senator Murray sat in her office reading the bill for the third time. She had been against it in committee. Now she was not sure. The hearing had changed her mind — or at least the way she held her doubt. \"I don't love this version,\" she told her chief of staff. \"But I don't love the other one either.\""},
+
+  {label:"HUMAN — Personal Substack (snippet)",author:"human",
+   text:"I burned the roux. Twice. The second time I was sure I'd followed the recipe but no — I forgot to turn the heat down after the butter foamed and the whole thing went black in about forty seconds. My husband walked in, looked at the pan, and just said \"again?\" without even looking up from his phone. We ordered pizza."},
+
+  {label:"AI-LIKE — SEO blog (snippet)",author:"ai",
+   text:"In today's digital landscape, navigating the complexities of modern marketing can be a daunting task. It is important to note that businesses must delve into data-driven strategies in order to remain competitive. By leveraging the power of AI-driven insights, organizations can unlock unprecedented growth and navigate the ever-evolving challenges of the industry."},
+
+  {label:"AI-LIKE — AI website builder text",author:"ai",
+   text:"Welcome to our comprehensive guide to sustainable living. In this article, we will explore the multifaceted benefits of eco-friendly practices and delve into actionable strategies that empower individuals to make a meaningful impact. It is essential to understand that small changes can lead to substantial results over time."},
+
+  {label:"AI-LIKE — Product description",author:"ai",
+   text:"Our cutting-edge solution is designed to seamlessly integrate into your workflow, delivering unparalleled efficiency and robust performance. In conclusion, this innovative product represents a paradigm shift in how professionals approach their daily tasks — a testament to the power of thoughtful design."},
+
+  {label:"HUMAN — Investigative news (snippet)",author:"human",
+   text:"The emails, obtained through a public records request, span 14 months and include exchanges between three senior officials and a lobbyist for the firm. One of them — sent at 11:47 p.m. on a Sunday — contradicts what the agency's director told reporters the next morning."},
+];
+
+function band(p){return p<35?["low","Human-like"]:p<65?["med","Mixed signals"]:["high","Likely AI"]}
+
+function renderCard(s){
+  const r=AIScore.score(s.text,{url:s.url||"",author:s.author==="human"});
+  const bandCls=band(r.overall)[0],bandLab=band(r.overall)[1];
+  const pct=(x)=>Math.max(0,Math.min(100,x)).toFixed(0)+"%";
+  const div=document.createElement("div");
+  div.className="card";
+  div.innerHTML=`
+    <div class="label">${s.label}</div>
+    <div class="text">${s.text.replace(/</g,"&lt;")}</div>
+    <div style="margin-top:.7rem"><span class="badge ${bandCls}">${bandLab}</span><span style="font-size:.65rem;color:var(--text-dim)">estimate</span></div>
+    <div class="row"><span class="name">Text patterns</span><span class="bar"><span class="fill" style="background:var(--bad);transform:scaleX:${r.text/100}"></span></span><span class="pct">${pct(r.text)}</span></div>
+    <div class="row"><span class="name">Author / byline</span><span class="bar"><span class="fill" style="background:var(--warn);transform:scaleX:${r.author/100}"></span></span><span class="pct">${pct(r.author)}</span></div>
+    <div class="row"><span class="name">Domain signals</span><span class="bar"><span class="fill" style="background:var(--accent);transform:scaleX:${r.domain/100}"></span></span><span class="pct">${pct(r.domain)}</span></div>
+    <div class="row overall"><span class="name" style="color:var(--text)">Overall</span><span class="bar"><span class="fill" style="background:var(--accent);transform:scaleX:${r.overall/100}"></span></span><span class="pct">${pct(r.overall)}</span></div>
+    <div class="why"><strong>Why:</strong> ${r.reasons.slice(0,3).map(x=>`<code>${x}</code>`).join(" ")}</div>`;
+  return div;
+}
+
+function render(){
+  document.getElementById("grid").innerHTML="";
+  SAMPLES.forEach(s=>document.getElementById("grid").appendChild(renderCard(s)));
+}
+render();
+
+document.querySelectorAll(".controls button").forEach(b=>b.addEventListener("click",e=>{
+  AIScore.calibration=e.target.dataset.thr;
+  document.querySelectorAll(".controls button").forEach(x=>x.style.borderColor="var(--border)");
+  document.querySelectorAll(".controls button").forEach(x=>x.style.color="var(--text-dim)");
+  e.target.style.borderColor="var(--accent)";
+  e.target.style.color="var(--text)";
+  render();
+}));
+</script>
+</body>
+</html>

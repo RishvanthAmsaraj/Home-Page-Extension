@@ -13,8 +13,9 @@ Replace your browser's new tab with something that's actually nice to look at �
 - **🎨 4 handcrafted themes** — Slate, Ivory, Navy, and Modern (auto day/night with `#ff6200` orange accents)
 - **🖼️ Smart background** — upload any image; extension analyzes brightness and switches text/surface colors for best visibility
 - **🥃 Liquid glass effects** — subtle glass-morphism surfaces, floating orb animation
-- **✨ Smooth animations** — everything fades in and transitions buttery smooth
-- **⚡ Blazing fast** — pure vanilla JS, no frameworks, ~35 KB total, zero dependencies
+- **✨ Smooth animations** — bouncy spring + smooth Apple curves, everything fades in and transitions buttery smooth
+- **🤖 AI Signal** *(beta)* — heuristic AI-likelihood score on Google / DuckDuckGo / Brave search results. Shows an "AI: NN%" badge per result, optionally hides high-AI ones. **Pure client-side. No API. No fetch of result pages.** [Read the methodology →](aiscan/spike.html)
+- **⚡ Blazing fast** — pure vanilla JS, no frameworks, ~125 KB total, zero dependencies
 - **💾 Settings persist** — via `chrome.storage.sync`, syncs across devices
 
 ## Installation
@@ -49,9 +50,12 @@ This means Horizon will open when you launch the browser or click the home butto
 
 Click the **⚙️** button in the bottom-right to open the settings panel:
 
-- **Theme** — Choose from Black, White, Navy, or Modern (auto day/night with `#ff6200` orange accents)
+- **Theme** — Choose from Slate, Ivory, Navy, or Modern (auto day/night with `#ff6200` orange accents)
 - **Background** — Upload your own PNG/JPEG image; text and elements automatically adjust for maximum readability
-- **Search Engine** — Pick from 8 search engines
+- **Glass Intensity** — surface translucency slider
+- **Default Search Engine** — Pick from 8 search engines
+- **Default AI Provider** — Perplexity, Grok, Gemini, ChatGPT, Claude, or DeepSeek
+- **AI Signal** *(beta)* — toggle the search-result heuristic scorer, set sensitivity (Low/Med/High), set the hide-above threshold, read the methodology
 - **Quick Links** — Add/edit/remove links with custom names, emojis, or uploaded images
 
 All settings auto-save and sync.
@@ -65,12 +69,41 @@ All settings auto-save and sync.
 | Navy   | `#001E44` | Penn State deep blue elegance |
 | Modern | Day/Night | Ivory bg/orange accents by day, dark bg/orange by night — switches automatically |
 
+## AI Signal (beta)
+
+> A client-side "smell test" for AI-flavored search results. Honest about its limits: it's a heuristic, not a classifier.
+
+**What it does.** When you enable AI Signal in settings, every Google / DuckDuckGo / Brave search result gets a small "AI: NN% · Human-like / Mixed / Likely AI" badge injected under the URL line. If you set a hide threshold (e.g. 75%), results that meet it collapse to a hover-to-expand line. Per-result ✕ dismisses a domain forever.
+
+**What it looks at.** Just the title, snippet, and URL — the same text the search engine already shows you. **The article body is never fetched.** Your browsing history stays yours.
+
+**Three signals, combined:**
+
+- **Text patterns (65%)** — weighted lexicon of 30+ AI-isms (*"delve into"*, *"navigate the complexities"*, *"in today's digital landscape"*, *"it's important to note"*, …), plus sentence-length uniformity and em-dash density.
+- **Author / byline (15%)** — looks for named humans (`"By Jane Smith"`) in the snippet; penalizes self-disclosure (`"AI-generated"`).
+- **Domain signals (20%)** — URL shape (TLD, hyphen slug, date-stamped path) with a small whitelist of known human publications (NYT, Atlantic, Wired, etc.) that override the score downward.
+
+**Calibration.** Low (×0.55, only flag obvious) / Medium (×1.0, default) / High (×1.35, sensitive). The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.
+
+**Calibration examples (medium sensitivity, title + snippet):**
+
+| Snippet | Score | Band |
+|---|---|---|
+| NYT investigative report on a donor network | 14% | Human-like |
+| Substack cooking post about burning a roux | 11% | Human-like |
+| Brené Brown personal essay | 11% | Human-like |
+| Wikipedia disambiguation page | 5% | Human-like |
+| SEO content farm listicle | 76% | Likely AI |
+| AI-tool review blog (multifaceted / comprehensive / actionable) | 79% | Likely AI |
+
+**What it will NOT do.** It will not catch lightly-edited AI text. It will not catch a human who happens to write in a corporate / listicle style. It will not give you a definitive "this is AI" answer. Anyone who tells you they can do that from a browser extension is lying. [Read the full methodology →](aiscan/spike.html)
+
 ## Lightweight
 
-- **~35 KB** total for all files
+- **~125 KB** total for all files (CSS + JS + HTML + manifest + icons + screenshots)
 - Zero frameworks, zero dependencies
-- Vanilla CSS/JS only
-- No unused re-renders, no React, no build step
+- Vanilla CSS/JS only — no React, no build step
+- The AI Signal module alone is ~20 KB; it's loaded only on Google / DDG / Brave search pages via `content_scripts`, not on every page
 
 ## License
 
