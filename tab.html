@@ -27,46 +27,38 @@
     <section class="search-section" id="searchSection">
       <form id="searchForm">
         <div class="search-row">
-          <span class="mode-tag" id="modeTag">🌐 Google</span>
+          <span class="mode-tag" id="modeTag">⬡ Google</span>
           <input type="text" id="searchInput" placeholder="Search..." autofocus spellcheck="false" autocomplete="off" />
           <span class="search-arrow" id="searchArrow">▼</span>
         </div>
       </form>
 
-      <!-- Everything below expands in one unified flex column -->
       <div class="search-body" id="searchBody">
-
-        <!-- Drawer: web engines + AI providers -->
         <div class="search-drawer" id="searchDrawer">
+
+          <!-- Engine / AI labels and chips inside drawer -->
           <div class="drawer-section">
-            <div class="drawer-label">Web</div>
-            <div class="drawer-grid" id="drawerWeb">
+            <div class="drawer-tabbar" id="drawerTabbar">
+              <button class="drawer-tab active" data-mode="web">Web Search</button>
+              <button class="drawer-tab" data-mode="ai">AI Chat</button>
+            </div>
+            <div class="drawer-grid" id="drawerGrid">
               <!-- populated by JS -->
             </div>
           </div>
-          <div class="drawer-divider"></div>
-          <div class="drawer-section">
-            <div class="drawer-label">AI Chat</div>
-            <div class="drawer-grid" id="drawerAI">
-              <!-- populated by JS -->
-            </div>
+
+          <!-- Filter chips (web mode) + AI hint (ai mode) inside drawer -->
+          <div class="drawer-footer" id="drawerFooter">
+            <div class="filter-bar" id="filterBar"></div>
+            <p class="ai-hint" id="aiModeHint"></p>
           </div>
+
         </div>
-
-        <!-- Filter chips -->
-        <div class="filter-bar" id="filterBar">
-          <!-- populated by JS -->
-        </div>
-
-        <p class="ai-hint" id="aiModeHint"></p>
-
-      </div><!-- /search-body -->
+      </div>
     </section>
 
-    <!-- Links — always visible, pushes down when search-body expands -->
     <section class="links" id="links"></section>
-
-  </div><!-- /container -->
+  </div>
 
   <button class="settings-toggle" id="settingsToggle" title="Customize">⚙️</button>
 

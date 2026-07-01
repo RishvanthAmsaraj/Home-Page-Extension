@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════
-   Horizon Tab v2.0 — Expandable search drawer
+   Horizon Tab v3.0 — Premium drawer + SVG logos
    ════════════════════════════════════════════════ */
 
 const LAT=40.7982,LON=-77.8599;
@@ -26,6 +26,26 @@ const AI={
 const AI_L={perplexity:"Perplexity",grok:"Grok",gemini:"Gemini",chatgpt:"ChatGPT",claude:"Claude",deepseek:"DeepSeek"};
 const AI_AUTO=new Set(["perplexity","grok","gemini"]);
 const AI_ORDER=["perplexity","grok","gemini","chatgpt","claude","deepseek"];
+
+/* ── SVG Logo Icons ── */
+const LOGOS={
+  // Web engines
+  google:`<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>`,
+  duckduckgo:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#DE5833"/><path fill="#FFF" d="M15.5 8.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-7 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/><path fill="#FFF" d="M12 17c-2.5 0-4.5-1.5-5.5-3.5h11c-1 2-3 3.5-5.5 3.5z"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z" fill="none" stroke="#FFF" stroke-width="1"/></svg>`,
+  brave:`<svg viewBox="0 0 24 24"><path fill="#FB542B" d="M12 2L2 7l2 9 8 6 8-6 2-9-10-5zm0 2.3l6.6 3.3-1.3 6-5.3 4-5.3-4-1.3-6L12 4.3z"/><path fill="#FF9A4D" d="M12 4.3l-1.5 4.7H7.8l3.8 2.7-1.4 4.8L12 13.8l3.8 2.7-1.4-4.8 3.8-2.7h-2.7L12 4.3z"/></svg>`,
+  bing:`<svg viewBox="0 0 24 24"><path fill="#008373" d="M3 3v18l8-3.5L21 22V8l-7-3.5z"/><path fill="#FFF" d="M3 12l8 2.5 10-6.5-2-2-8 5-6-2z"/></svg>`,
+  startpage:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--text-dim)" stroke-width="1.5"/><path fill="var(--text-dim)" d="M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/><circle cx="12" cy="12" r="2" fill="var(--accent)"/></svg>`,
+  kagi:`<svg viewBox="0 0 24 24"><path fill="var(--accent)" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.5l6.5 3.3-6.5 3.3-6.5-3.3L12 4.5zm-7 5.3L12 13.5l7-3.7v5.4l-7 3.5-7-3.5V9.8z"/></svg>`,
+  qwant:`<svg viewBox="0 0 24 24"><path fill="#4CC2FF" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c3.87 0 7 3.13 7 7s-3.13 7-7 7-7-3.13-7-7 3.13-7 7-7z"/><path fill="#FF596A" d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5z"/><path fill="#FFF" d="M12 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`,
+  searxng:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.5"/><path fill="var(--text-dim)" d="M8 10h8v1H8zm0 3h6v1H8z"/><circle cx="17" cy="8" r="2" fill="var(--accent)"/></svg>`,
+  // AI providers
+  perplexity:`<svg viewBox="0 0 24 24"><path fill="var(--accent)" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15.93v-3.52c.33.07.66.09 1 .09s.67-.02 1-.09v3.52c-.33.07-.66.09-1 .09s-.67-.02-1-.09zm-1-.35c-2.04-.45-3.65-2.05-4.08-4.08h3.52c.07.33.17.65.32.95-.31.2-.58.45-.81.73-.49.5-.84 1.1-1.02 1.76.02.02.04.03.07.05V17.58zm9.08-4.43H16.56c.15-.3.25-.62.32-.95h3.52c-.43 2.03-2.04 3.63-4.08 4.08v-3.13h.01zm-9.08-1.85c-.02-.35-.03-.7 0-1.05h6.18c.02.35.03.7 0 1.05H10zm9.42-2.85h-3.52c-.15-.3-.25-.62-.32-.95h3.52c-.43 2.03-2.04 3.63-4.08 4.08v-3.13zm-9.42-.95c.07-.33.17-.65.32-.95-.31-.2-.58-.45-.81-.73-.49-.5-.84-1.1-1.02-1.76-.02-.02-.04-.03-.07-.05V6.42c2.04.45 3.65 2.05 4.08 4.08h-2.5zm5.1 4.73c.15-.3.25-.62.32-.95h3.52c-.43 2.03-2.04 3.63-4.08 4.08v-3.13z"/></svg>`,
+  grok:`<svg viewBox="0 0 24 24"><path fill="var(--accent)" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c.83 0 1.5.67 1.5 1.5S12.83 8 12 8s-1.5-.67-1.5-1.5S11.17 5 12 5zm-2 5h4v8h-4v-8z"/></svg>`,
+  gemini:`<svg viewBox="0 0 24 24"><path fill="var(--accent)" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.5 10.5h-4v4h-1v-4h-4v-1h4v-4h1v4h4v1z"/></svg>`,
+  chatgpt:`<svg viewBox="0 0 24 24"><path fill="#10A37F" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 13.5h-3.5l-1.5 2.5-1.5-2.5H7v-1l2.5-4L7 6.5h3.5L12 4l1.5 2.5H17l-2.5 4L17 14.5v1z"/><path fill="#FFF" d="M12 4l1.5 2.5H17l-2.5 4L17 14.5v1h-3.5l-1.5 2.5-1.5-2.5H7v-1l2.5-4L7 6.5h3.5L12 4z" opacity=".2"/></svg>`,
+  claude:`<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.5"/><path fill="var(--accent)" d="M8 9h8v1.5H8zm0 3.5h6V14H8z"/><circle cx="17" cy="8" r="1.5" fill="var(--accent)"/></svg>`,
+  deepseek:`<svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="4" fill="none" stroke="var(--accent)" stroke-width="1.5"/><path fill="var(--accent)" d="M7 8h10v1.5H7zm0 3h8v1.5H7zm0 3h6v1.5H7z"/></svg>`
+};
 
 const AI_FREE_PARAMS={
   google:"&udm=14",duckduckgo:"&ia=web",brave:"&source=web",
@@ -173,10 +193,14 @@ function currentLabel(){
 }
 function currentIcon(){return isAI()?"🤖":"🌐"}
 
+/* ── SVG icon for a key ── */
+function svgIcon(key){return LOGOS[key]||LOGOS.google}
+
 /* ── Tag + drawer open/close ── */
 function updateModeTag(){
   const tag=document.getElementById("modeTag");
-  if(tag)tag.textContent=currentIcon()+" "+currentLabel();
+  if(isAI())tag.innerHTML=svgIcon(state.aiProvider)+' '+AI_L[state.aiProvider];
+  else tag.innerHTML=svgIcon(state.searchEngine)+' '+state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
 }
 function tagOnInput(){
   const i=document.getElementById("searchInput");
@@ -188,33 +212,41 @@ function openDrawer(){document.getElementById("searchSection").classList.add("op
 function closeDrawer(){document.getElementById("searchSection").classList.remove("open")}
 function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
 
-/* ── Render drawer buttons ── */
+/* ── Tab bar ── */
+function renderTabs(){
+  const bar=document.getElementById("drawerTabbar");
+  bar.innerHTML='<button class="drawer-tab'+(isAI()?'':' active')+'" data-mode="web">Web Search</button><button class="drawer-tab'+(isAI()?' active':'')+'" data-mode="ai">AI Chat</button>';
+  bar.querySelectorAll(".drawer-tab").forEach(tab=>{
+    tab.addEventListener("click",()=>{
+      const mode=tab.dataset.mode;
+      if(mode==="web"&&isAI()){state.searchType="all";refreshUI()}
+      else if(mode==="ai"&&!isAI()){state.searchType="ai";refreshUI()}
+    });
+  });
+}
+
+/* ── Render drawer grid ── */
 function renderDrawer(){
-  // Web engines
-  document.getElementById("drawerWeb").innerHTML=Object.keys(SE).map(k=>{
-    const act=!isAI()&&state.searchEngine===k;
-    return `<button class="drawer-btn${act?" active":""}" data-kind="web" data-key="${k}"><span class="db-icon">🌐</span><span class="db-name">${k.charAt(0).toUpperCase()+k.slice(1)}</span><span class="db-tag">web</span></button>`;
-  }).join("");
-  // AI providers
-  document.getElementById("drawerAI").innerHTML=AI_ORDER.map(k=>{
-    const act=isAI()&&state.aiProvider===k;
-    const auto=AI_AUTO.has(k);const tag=auto?"→ auto":"✎ prefill";
-    return `<button class="drawer-btn${act?" active":""}" data-kind="ai" data-key="${k}"><span class="db-icon">🤖</span><span class="db-name">${AI_L[k]}</span><span class="db-tag">${tag}</span></button>`;
+  renderTabs();
+  const grid=document.getElementById("drawerGrid");
+  const items=isAI()?AI_ORDER.map(k=>[k,AI_L[k],"ai",AI_AUTO.has(k)?"→ auto":"✎ prefill"]):Object.keys(SE).map(k=>[k,k.charAt(0).toUpperCase()+k.slice(1),"web","web"]);
+  grid.innerHTML=items.map(([key,label,kind,tag])=>{
+    const act=(kind==="web"&&!isAI()&&state.searchEngine===key)||(kind==="ai"&&isAI()&&state.aiProvider===key);
+    return `<button class="drawer-btn${act?" active":""}" data-kind="${kind}" data-key="${key}"><span class="db-svg">${svgIcon(key)}</span><span class="db-name">${label}</span><span class="db-tag">${tag}</span></button>`;
   }).join("");
 
-  document.querySelectorAll(".drawer-btn").forEach(btn=>{
+  grid.querySelectorAll(".drawer-btn").forEach(btn=>{
     btn.addEventListener("click",e=>{
       e.stopPropagation();
       const kind=btn.dataset.kind,key=btn.dataset.key;
       if(kind==="web"){state.searchEngine=key;state.searchType="all";}
       else{state.aiProvider=key;state.searchType="ai";}
       refreshUI();
-      // Don't close drawer — user may want to switch again
     });
   });
 }
 
-/* ── Filter bar ── */
+/* ── Filter bar + AI hint (inside drawer) ── */
 function renderFilterBar(){
   const bar=document.getElementById("filterBar");
   const hint=document.getElementById("aiModeHint");
@@ -226,9 +258,9 @@ function renderFilterBar(){
     return;
   }
   hint.classList.remove("active");
-  bar.classList.add("visible");
   bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
     `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
+  bar.classList.add("visible");
   bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
     chip.addEventListener("click",()=>{state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
   });
