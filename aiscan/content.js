@@ -158,6 +158,13 @@
     return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
   }
 
+  function trustLabel(trust) {
+    if (trust >= 80) return "★★★";
+    if (trust >= 60) return "★★☆";
+    if (trust >= 40) return "★☆☆";
+    return "☆☆☆";
+  }
+
   function injectBadge(card, score, hostname) {
     // Remove old badge if any
     const old = card.querySelector(".hz-ai-badge");
@@ -168,10 +175,15 @@
     badge.className = "hz-ai-badge";
     badge.dataset.band = band;
     badge.dataset.hostname = hostname;
+    
+    // Compact format: AI% + trust stars
+    const trustStars = trustLabel(score.trust);
+    const trustColor = score.trust >= 70 ? "#22c55e" : score.trust >= 40 ? "#f59e0b" : "#ef4444";
+    
     badge.innerHTML = `
       <span class="hz-ai-dot" aria-hidden="true"></span>
-      <span class="hz-ai-pct">AI: ${score.overall}%</span>
-      <span class="hz-ai-label">${bandLabel(band)}</span>
+      <span class="hz-ai-pct">${score.overall}%</span>
+      <span class="hz-ai-trust" style="color:${trustColor}" title="Trust: ${score.trust}%">${trustStars}</span>
       <button class="hz-ai-dismiss" type="button" aria-label="Dismiss" title="Hide for this domain">✕</button>
     `;
 
@@ -239,8 +251,13 @@
       ? `<div class="hz-user-mark">You marked this as: <strong>${userMark === 'human' ? 'Human' : 'AI'}</strong></div>`
       : '';
     
+    // Trust rating display
+    const trustColor = score.trust >= 70 ? "#22c55e" : score.trust >= 40 ? "#f59e0b" : "#ef4444";
+    const trustText = score.trust >= 80 ? "Highly trusted" : score.trust >= 60 ? "Trusted" : score.trust >= 40 ? "Moderate trust" : "Low trust";
+    
     tip.innerHTML = `
       <strong>AI Signal: ${score.overall}% · ${bandLabel(band)}</strong>
+      <div class="hz-trust" style="color:${trustColor}">Trust: ${score.trust}% · ${trustText}</div>
       <div class="hz-reasons">${reasonsText}</div>
       ${userMarkText}
       <div class="hz-actions">
@@ -302,6 +319,13 @@
     if (card.querySelector("[data-attrid='kc:/discussion/forum']")) return true;
     if (text.includes("What people are saying") || text.includes("trending posts")) return true;
     if (card.querySelector("g-section-with-header")) return true;
+    
+    // Skip AI Overview / generated results
+    if (card.closest("[data-attrid='wa:/description']")) return true;
+    if (card.querySelector("[data-attrid='wa:/description']")) return true;
+    if (text.includes("AI Overview") || text.includes("AI-generated")) return true;
+    if (card.querySelector("g-generative-ai")) return true;
+    if (card.closest("g-generative-ai")) return true;
     
     // Skip if it's a discussion card (has multiple nested results)
     const nestedResults = card.querySelectorAll(".g, article");

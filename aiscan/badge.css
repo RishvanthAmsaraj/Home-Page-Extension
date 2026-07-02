@@ -48,6 +48,13 @@
 .hz-ai-badge[data-band="med"]  { background: #fef3c7; color: #92400e; }
 .hz-ai-badge[data-band="high"] { background: #fee2e2; color: #991b1b; }
 
+/* Trust stars inside badge */
+.hz-ai-trust {
+  font-size: 10px;
+  margin-left: 2px;
+  letter-spacing: -1px;
+}
+
 /* Dot indicator */
 .hz-ai-dot {
   width: 6px;
@@ -149,6 +156,16 @@
   font-size: 13px;
   margin-bottom: 4px;
   color: #fff;
+}
+
+/* Trust rating in tooltip */
+.hz-ai-tooltip .hz-trust {
+  font-size: 12px;
+  margin: 4px 0 6px;
+  padding: 3px 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  display: inline-block;
 }
 
 /* Tooltip reasons list */

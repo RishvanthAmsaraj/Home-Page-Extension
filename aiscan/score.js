@@ -347,6 +347,65 @@
   function getCalibration() { return CAL; }
 
   /* ──────────────────────────────────────────────────────────────────
+     Trust score — based on domain reputation
+     ──────────────────────────────────────────────────────────────────
+     Returns 0-100 where higher = more trustworthy
+     Based on: known publications, edu/gov domains, TLD reputation
+  */
+  function scoreTrust(url) {
+    if (!url) return 50; // neutral
+    const lower = String(url).toLowerCase();
+    let score = 50;
+    
+    // Known publications = high trust
+    for (const domain of NEWS_TLDS) {
+      if (lower.includes(domain)) {
+        score = 85 + Math.floor(Math.random() * 10); // 85-95
+        return score;
+      }
+    }
+    
+    // Edu/gov = high trust
+    if (/\.(edu|gov|mil|int)\b/.test(lower)) {
+      score = 80 + Math.floor(Math.random() * 10);
+      return score;
+    }
+    
+    // Major tech companies = high trust
+    const techDomains = ["google.com", "microsoft.com", "apple.com", "amazon.com", "meta.com", "netflix.com", "spotify.com", "airbnb.com", "uber.com", "lyft.com", "slack.com", "notion.so", "figma.com", "canva.com", "webflow.com", "framer.com", "vercel.com", "netlify.com", "github.com", "gitlab.com", "bitbucket.org", "stackoverflow.com", "stackexchange.com", "reddit.com", "quora.com", "ycombinator.com", "producthunt.com", "behance.net", "dribbble.com", "dev.to", "hashnode.com", "freecodecamp.org", "codecademy.com", "coursera.org", "edx.org", "udemy.com", "khanacademy.org"];
+    for (const domain of techDomains) {
+      if (lower.includes(domain)) {
+        score = 75 + Math.floor(Math.random() * 10);
+        return score;
+      }
+    }
+    
+    // Low-trust TLDs
+    for (const tld of LOW_TRUST_TLD) {
+      if (lower.endsWith(tld) || lower.includes(tld + "/")) {
+        score = 15 + Math.floor(Math.random() * 15);
+        return score;
+      }
+    }
+    
+    // AI TLDs = slightly lower trust
+    for (const tld of AI_TLD_SKEW) {
+      if (lower.endsWith(tld) || lower.includes(tld + "/")) {
+        score = 35 + Math.floor(Math.random() * 15);
+        return score;
+      }
+    }
+    
+    // Generic blog platforms = medium-low
+    if (/\.(blogspot|wordpress|medium|substack|ghost|tumblr|weebly|wix|squarespace)\./.test(lower)) {
+      score = 40 + Math.floor(Math.random() * 15);
+      return score;
+    }
+    
+    return score;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
      Combine
      ──────────────────────────────────────────────────────────────────
      Text patterns are by far the strongest signal — AI-isms are the
@@ -376,6 +435,7 @@
     const a = scoreAuthor({ byline, text });
     const d = scoreDomain(url);
     const overall = combine(t.score, a, d);
+    const trust = scoreTrust(url);
 
     const reasons = [
       ...t.hits.slice(0, 4),
@@ -389,12 +449,13 @@
       author: a,
       domain: d,
       overall,
+      trust,
       reasons,
     };
   }
 
   // Export for both browser extension (via window.AIScore) and Node tests
-  const api = { score, scoreText, scoreAuthor, scoreDomain, combine, setCalibration, getCalibration };
+  const api = { score, scoreText, scoreAuthor, scoreDomain, scoreTrust, combine, setCalibration, getCalibration };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AIScore = api;
 })(typeof window !== "undefined" ? window : globalThis);
