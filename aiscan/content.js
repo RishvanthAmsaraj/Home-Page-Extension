@@ -12,7 +12,8 @@
     google: {
       // Each result is a direct child of #rso or nested in data-sokoban-container
       // We target the INNER result divs, not the container
-      result: "#rso > div > div.g, #rso .g, div[data-sokoban-container] .g, #search .g, [data-snf] .g, div.g[data-hveid], div[jscontroller][data-hveid]",
+      // EXCLUDE: "What people are saying" / trending discussions (g-blk, g-section-with-header)
+      result: "#rso > div > div.g:not(.g-blk):not([data-hveid='']):not([data-sokoban-container] .g-blk), #rso .g:not(.g-blk), div[data-sokoban-container] .g:not(.g-blk), #search .g:not(.g-blk), [data-snf] .g:not(.g-blk), div.g[data-hveid]:not(.g-blk), div[jscontroller][data-hveid]:not(.g-blk)",
       anchor: "a[href]:not([role='button'])",
       title: "h3",
       snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230, span[data-st], div[data-sncf] > div > span, div.VwiC3b",
@@ -215,6 +216,18 @@
     const tip = document.createElement("div");
     tip.className = "hz-ai-tooltip";
     
+    // Smart positioning: if card is in right half of viewport, show tooltip on left
+    const cardRect = card.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const isRightSide = cardRect.left > (viewportWidth / 2);
+    
+    if (isRightSide) {
+      tip.style.left = "auto";
+      tip.style.right = "calc(100% + 8px)";
+      tip.style.transform = "translateY(-50%) translateX(4px)";
+      card.dataset.hzPosition = "right";
+    }
+    
     // Build reasons text
     const reasonsText = score.reasons.length > 0 
       ? escapeAttr(score.reasons.join(" · "))
@@ -279,9 +292,33 @@
     });
   }
 
+  function shouldSkipCard(card) {
+    // Skip "What people are saying" / trending discussions / forum sections
+    const text = card.textContent || "";
+    const html = card.innerHTML || "";
+    
+    // Check for discussion/forum indicators
+    if (card.closest(".g-blk")) return true;
+    if (card.querySelector("[data-attrid='kc:/discussion/forum']")) return true;
+    if (text.includes("What people are saying") || text.includes("trending posts")) return true;
+    if (card.querySelector("g-section-with-header")) return true;
+    
+    // Skip if it's a discussion card (has multiple nested results)
+    const nestedResults = card.querySelectorAll(".g, article");
+    if (nestedResults.length > 3) return true;
+    
+    return false;
+  }
+
   function processCard(card) {
     if (!prefs.aiSignal) return;
     if (card.dataset.hzAIDone === "1") return;
+    
+    // Skip discussion/forum cards
+    if (shouldSkipCard(card)) {
+      card.dataset.hzAIDone = "1";
+      return;
+    }
 
     const sel = SELECTORS[engine];
     if (!sel) return;

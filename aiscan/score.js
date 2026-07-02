@@ -73,6 +73,101 @@
     { re: /\bworld\s+of\s+(possibilities|opportunities|wellness|fitness)\b/gi, w: 3, name: "world of possibilities" },
     { re: /\bin\s+the\s+realm\s+of\b/gi, w: 3, name: "in the realm of" },
     { re: /\bwhether\s+you'?re\s+a\s+(beginner|seasoned|seasoned professional|novice|expert)\b/gi, w: 4, name: "whether you're a beginner" },
+    // Additional patterns (2024-2025 AI tells)
+    { re: /\bleverage(ing|s|d)?\s+(the\s+)?(power|potential|capabilities?|strengths?)\s+of\b/gi, w: 5, name: "leverage the power of" },
+    { re: /\btransformative\s+(impact|power|potential|effect|change)\b/gi, w: 5, name: "transformative impact" },
+    { re: /\bdisrupt(ive|ing|ion)?\s+(the\s+)?(industry|market|space|landscape|status quo)\b/gi, w: 4, name: "disrupt the industry" },
+    { re: /\bholistic\s+(approach|solution|view|perspective|framework)\b/gi, w: 5, name: "holistic approach" },
+    { re: /\bstreamline\s+(your\s+)?(workflow|process|operations|efficiency)\b/gi, w: 4, name: "streamline your workflow" },
+    { re: /\boptimal\s+(solution|performance|results|experience|outcome)\b/gi, w: 4, name: "optimal solution" },
+    { re: /\bscalable\s+(solution|architecture|infrastructure|approach|platform)\b/gi, w: 4, name: "scalable solution" },
+    { re: /\bend-?to-?end\s+(solution|service|platform|experience|support)\b/gi, w: 4, name: "end-to-end solution" },
+    { re: /\buser-?centric\s+(design|approach|experience|solution|platform)\b/gi, w: 4, name: "user-centric design" },
+    { re: /\bdata-?driven\s+(insights|decisions|approach|strategy|solution)\b/gi, w: 4, name: "data-driven insights" },
+    { re: /\bnext-?generation\s+(technology|solution|platform|approach|tool)\b/gi, w: 4, name: "next-generation technology" },
+    { re: /\bstate-?of-?the-?art\s+(technology|solution|performance|results|approach)\b/gi, w: 5, name: "state-of-the-art" },
+    { re: /\bseamless\s+(integration|experience|transition|solution|workflow)\b/gi, w: 4, name: "seamless integration" },
+    { re: /\bpowerful\s+(tool|solution|platform|feature|capability)\b/gi, w: 3, name: "powerful tool" },
+    { re: /\bcomprehensive\s+(suite|range|array|selection|list)\s+of\b/gi, w: 3, name: "comprehensive suite of" },
+    { re: /\bwide\s+range\s+of\s+(options|features|services|solutions|benefits)\b/gi, w: 3, name: "wide range of" },
+    { re: /\bvariety\s+of\s+(options|features|services|solutions|benefits)\b/gi, w: 3, name: "variety of" },
+    { re: /\bdive\s+into\s+(the\s+)?(details|world|topic|subject|matter)\b/gi, w: 4, name: "dive into the details" },
+    { re: /\bexplore\s+(the\s+)?(possibilities|options|features|benefits|world)\b/gi, w: 3, name: "explore the possibilities" },
+    { re: /\bdiscover\s+(the\s+)?(power|potential|benefits|magic|secret)\b/gi, w: 4, name: "discover the power" },
+    { re: /\bultimate\s+(guide|solution|resource|tool|experience)\b/gi, w: 4, name: "ultimate guide" },
+    { re: /\bessential\s+(guide|tips|strategies|tools|resources)\b/gi, w: 3, name: "essential guide" },
+    { re: /\bmust-?read\s+(article|guide|post|resource|book)\b/gi, w: 3, name: "must-read" },
+    { re: /\bquick\s+(guide|overview|summary|tips|steps)\b/gi, w: 2, name: "quick guide" },
+    { re: /\bstep-?by-?step\s+(guide|process|tutorial|instructions?)\b/gi, w: 3, name: "step-by-step guide" },
+    { re: /\bbeginner'?s?\s+(guide|tutorial|overview|introduction)\b/gi, w: 2, name: "beginner's guide" },
+    { re: /\bcomplete\s+(guide|overview|tutorial|resource)\b/gi, w: 3, name: "complete guide" },
+    { re: /\bfinal\s+(thoughts|verdict|word|say)\b/gi, w: 4, name: "final thoughts" },
+    { re: /\bkey\s+(takeaways?|points|highlights|findings|insights)\b/gi, w: 3, name: "key takeaways" },
+    { re: /\bwrap\s+up\b/gi, w: 3, name: "wrap up" },
+    { re: /\bin\s+summary\b/gi, w: 3, name: "in summary" },
+    { re: /\bto\s+sum\s+up\b/gi, w: 3, name: "to sum up" },
+    { re: /\ball\s+in\s+all\b/gi, w: 3, name: "all in all" },
+    { re: /\bat\s+the\s+end\s+of\s+the\s+day\b/gi, w: 4, name: "at the end of the day" },
+    { re: /\bwhen\s+it\s+comes\s+to\b/gi, w: 2, name: "when it comes to" },
+    { re: /\bone\s+of\s+the\s+(most|best|top|key|main)\b/gi, w: 2, name: "one of the most" },
+    { re: /\bit\s+is\s+(important|essential|crucial|vital)\s+to\b/gi, w: 3, name: "it is important to" },
+    { re: /\bthere\s+are\s+(many|several|a\s+number\s+of)\s+(reasons|factors|ways|things)\b/gi, w: 3, name: "there are many reasons" },
+    { re: /\bfirst\s+and\s+foremost\b/gi, w: 3, name: "first and foremost" },
+    { re: /\blast\s+but\s+not\s+least\b/gi, w: 3, name: "last but not least" },
+    { re: /\bon\s+the\s+other\s+hand\b/gi, w: 2, name: "on the other hand" },
+    { re: /\bwith\s+that\s+said\b/gi, w: 3, name: "with that said" },
+    { re: /\bhaving\s+said\s+that\b/gi, w: 3, name: "having said that" },
+    { re: /\bthat\s+being\s+said\b/gi, w: 3, name: "that being said" },
+    { re: /\bin\s+order\s+to\b/gi, w: 2, name: "in order to" },
+    { re: /\bdue\s+to\s+the\s+fact\s+that\b/gi, w: 4, name: "due to the fact that" },
+    { re: /\bin\s+spite\s+of\s+the\s+fact\s+that\b/gi, w: 4, name: "in spite of the fact that" },
+    { re: /\bduring\s+this\s+(time|period|process|journey)\b/gi, w: 3, name: "during this time" },
+    { re: /\bin\s+this\s+(day|age|era|time)\b/gi, w: 3, name: "in this day and age" },
+    { re: /\bin\s+the\s+(current|present|modern)\s+(world|climate|landscape|environment)\b/gi, w: 4, name: "in the current world" },
+    { re: /\bin\s+an\s+(increasingly|ever|rapidly)\s+(digital|connected|global|complex)\b/gi, w: 4, name: "in an increasingly digital" },
+    { re: /\bas\s+we\s+(move|look|step|transition)\s+(forward|ahead|into)\b/gi, w: 4, name: "as we move forward" },
+    { re: /\blooking\s+ahead\b/gi, w: 3, name: "looking ahead" },
+    { re: /\bgoing\s+forward\b/gi, w: 3, name: "going forward" },
+    { re: /\bmoving\s+forward\b/gi, w: 3, name: "moving forward" },
+    { re: /\bthe\s+future\s+of\b/gi, w: 3, name: "the future of" },
+    { re: /\bwhat\s+the\s+future\s+holds\b/gi, w: 4, name: "what the future holds" },
+    { re: /\bon\s+the\s+horizon\b/gi, w: 3, name: "on the horizon" },
+    { re: /\bjust\s+around\s+the\s+corner\b/gi, w: 3, name: "just around the corner" },
+    { re: /\bfast\s+approaching\b/gi, w: 3, name: "fast approaching" },
+    { re: /\brapidly\s+approaching\b/gi, w: 3, name: "rapidly approaching" },
+    { re: /\bon\s+the\s+rise\b/gi, w: 3, name: "on the rise" },
+    { re: /\bgaining\s+(traction|momentum|popularity|attention)\b/gi, w: 3, name: "gaining traction" },
+    { re: /\bat\s+an\s+all-?time\s+high\b/gi, w: 3, name: "at an all-time high" },
+    { re: /\bmore\s+important(ly)?\s+than\s+ever\b/gi, w: 4, name: "more important than ever" },
+    { re: /\bnow\s+more\s+than\s+ever\b/gi, w: 4, name: "now more than ever" },
+    { re: /\bit\s+is\s+clear\s+that\b/gi, w: 3, name: "it is clear that" },
+    { re: /\bit\s+is\s+evident\s+that\b/gi, w: 3, name: "it is evident that" },
+    { re: /\bit\s+is\s+obvious\s+that\b/gi, w: 3, name: "it is obvious that" },
+    { re: /\bit\s+goes\s+without\s+saying\b/gi, w: 4, name: "it goes without saying" },
+    { re: /\bneedless\s+to\s+say\b/gi, w: 3, name: "needless to say" },
+    { re: /\bas\s+you\s+can\s+(see|imagine|tell|expect)\b/gi, w: 3, name: "as you can see" },
+    { re: /\bas\s+we\s+all\s+know\b/gi, w: 3, name: "as we all know" },
+    { re: /\bit\s+is\s+widely\s+known\s+that\b/gi, w: 4, name: "it is widely known that" },
+    { re: /\bit\s+is\s+common\s+knowledge\s+that\b/gi, w: 4, name: "it is common knowledge" },
+    { re: /\bit\s+is\s+no\s+secret\s+that\b/gi, w: 3, name: "it is no secret" },
+    { re: /\bwe\s+all\s+know\b/gi, w: 3, name: "we all know" },
+    { re: /\beveryone\s+knows\b/gi, w: 3, name: "everyone knows" },
+    { re: /\bmost\s+people\s+know\b/gi, w: 3, name: "most people know" },
+    { re: /\bit\s+is\s+well\s+known\s+that\b/gi, w: 3, name: "it is well known" },
+    { re: /\bit\s+is\s+generally\s+accepted\s+that\b/gi, w: 4, name: "it is generally accepted" },
+    { re: /\bit\s+is\s+universally\s+acknowledged\s+that\b/gi, w: 5, name: "it is universally acknowledged" },
+    { re: /\baccording\s+to\s+experts\b/gi, w: 3, name: "according to experts" },
+    { re: /\bexperts\s+(say|agree|suggest|recommend|believe)\b/gi, w: 3, name: "experts say" },
+    { re: /\bresearch\s+(shows|suggests|indicates|reveals|confirms)\b/gi, w: 3, name: "research shows" },
+    { re: /\bstudies\s+(show|suggest|indicate|reveal|confirm)\b/gi, w: 3, name: "studies show" },
+    { re: /\bscience\s+(says|shows|suggests|proves)\b/gi, w: 3, name: "science says" },
+    { re: /\bit\s+has\s+been\s+(shown|proven|demonstrated|established)\s+that\b/gi, w: 4, name: "it has been shown" },
+    { re: /\bit\s+is\s+worth\s+noting\s+that\b/gi, w: 3, name: "it is worth noting" },
+    { re: /\bit\s+is\s+interesting\s+to\s+note\b/gi, w: 3, name: "it is interesting to note" },
+    { re: /\bit\s+is\s+important\s+to\s+mention\b/gi, w: 3, name: "it is important to mention" },
+    { re: /\bit\s+should\s+be\s+noted\s+that\b/gi, w: 3, name: "it should be noted" },
+    { re: /\bworth\s+mentioning\b/gi, w: 3, name: "worth mentioning" },
+    { re: /\bimportant\s+to\s+mention\b/gi, w: 3, name: "important to mention" },
   ];
 
   /* ──────────────────────────────────────────────────────────────────
@@ -186,7 +281,7 @@
   */
   const AI_TLD_SKEW = [".ai", ".io", ".co", ".app", ".xyz", ".click", ".lol", ".buzz"];
   const LOW_TRUST_TLD = [".click", ".xyz", ".buzz", ".top", ".loan", ".work", ".kim"];
-  const NEWS_TLDS = ["nytimes.com", "washingtonpost.com", "theguardian.com", "bbc.com", "bbc.co.uk", "reuters.com", "apnews.com", "theatlantic.com", "newyorker.com", "wired.com", "arstechnica.com", "economist.com", "bloomberg.com", "ft.com", "wsj.com", "latimes.com", "chicagotribune.com", "bostonglobe.com", "nature.com", "sciencemag.org", "sciencedirect.com", "springer.com", "jstor.org", "wikipedia.org", "britannica.com"];
+  const NEWS_TLDS = ["nytimes.com", "washingtonpost.com", "theguardian.com", "bbc.com", "bbc.co.uk", "reuters.com", "apnews.com", "theatlantic.com", "newyorker.com", "wired.com", "arstechnica.com", "economist.com", "bloomberg.com", "ft.com", "wsj.com", "latimes.com", "chicagotribune.com", "bostonglobe.com", "nature.com", "sciencemag.org", "sciencedirect.com", "springer.com", "jstor.org", "wikipedia.org", "britannica.com", "techcrunch.com", "theverge.com", "engadget.com", "gizmodo.com", "cnet.com", "zdnet.com", "venturebeat.com", "fastcompany.com", "inc.com", "forbes.com", "hbr.org", "mit.edu", "stanford.edu", "harvard.edu", "berkeley.edu", "cmu.edu", "caltech.edu", "nasa.gov", "nih.gov", "cdc.gov", "who.int", "un.org", "worldbank.org", "pewresearch.org", "gallup.com", "polls.com", "fivethirtyeight.com", "vox.com", "politico.com", "axios.com", "propublica.org", "motherjones.com", "slate.com", "salon.com", "medium.com", "substack.com", "ghost.org", "github.com", "stackoverflow.com", "stackexchange.com", "reddit.com", "quora.com", "ycombinator.com", "producthunt.com", "behance.net", "dribbble.com", "dev.to", "hashnode.com", "freecodecamp.org", "codecademy.com", "coursera.org", "edx.org", "udemy.com", "khanacademy.org", "mitocw.org", "arxiv.org", "pubmed.ncbi.nlm.nih.gov", "scholar.google.com", "researchgate.net", "academia.edu", "mendeley.com", "zotero.org", "jstor.org", "ieee.org", "acm.org", "aaas.org", "aps.org", "acs.org", "rsc.org", "elsevier.com", "wiley.com", "tandfonline.com", "sagepub.com", "cambridge.org", "oxfordjournals.org", "plos.org", "biorxiv.org", "medrxiv.org", "ssrn.com", " SSRN.com", "papers.ssrn.com", "ideas.repec.org", "nber.org", "cepr.org", "iza.org", "brookings.edu", "rand.org", "chathamhouse.org", "cfr.org", "carnegieendowment.org", "csis.org", "heritage.org", "aei.org", "cato.org", "mises.org", "brookings.edu", "pewforum.org", "pewresearch.org", "gallup.com", "polls.com", "fivethirtyeight.com", "vox.com", "politico.com", "axios.com", "propublica.org", "motherjones.com", "slate.com", "salon.com", "thedailybeast.com", "buzzfeednews.com", "vice.com", "vox.com", "theintercept.com", "democracynow.org", "commondreams.org", "truthout.org", "alternet.org", "rawstory.com", "dailykos.com", "thinkprogress.org", "mediamatters.org", "factcheck.org", "politifact.com", "snopes.com", "washingtonexaminer.com", "dailycaller.com", "breitbart.com", "theblaze.com", "dailywire.com", "nationalreview.com", "weeklystandard.com", "spectator.org", "thefederalist.com", "americanthinker.com", "townhall.com", "redstate.com", "hotair.com", "instapundit.com", "drudgereport.com", "zerohedge.com", "infowars.com", "naturalnews.com", "beforeitsnews.com", "activistpost.com", "globalresearch.ca", "veteranstoday.com", "veteransnewsnow.com", "whatreallyhappened.com", "rense.com", "prisonplanet.com", "infowars.com", "naturalnews.com", "mercola.com", "greenmedinfo.com", "healthimpactnews.com", "vaccineimpact.com", "childrenshealthdefense.org", "thehighwire.com", "delbigtree.com", "icandecide.org", "nvic.org", "ahrp.org", " allianceforhumanresearchprotection.org", "medicalveritas.org", "omsj.org", "rethinkingaids.com", "virusmyth.com", "houseofnumbers.com", "theperthgroup.com", "virustmyth.net", "bioinitiative.org", "ehtrust.org", "mdsafetech.org", "parents4safe schools.org", "screensandkids.org", "waituntil8th.org", "center4research.org", "breastcancerfund.org", "ewg.org", "skindeep.org", "foodandwaterwatch.org", "centerforfoodsafety.org", "non-gmoreport.com", "responsibletechnology.org", "gmwatch.org", "organicconsumers.org", "farmwars.info", "healthranger.com", "naturalnews.com", "mercola.com", "greenmedinfo.com", "healthimpactnews.com", "vaccineimpact.com", "childrenshealthdefense.org", "thehighwire.com", "delbigtree.com", "icandecide.org", "nvic.org", "ahrp.org", " allianceforhumanresearchprotection.org", "medicalveritas.org", "omsj.org", "rethinkingaids.com", "virusmyth.com", "houseofnumbers.com", "theperthgroup.com", "virustmyth.net", "bioinitiative.org", "ehtrust.org", "mdsafetech.org", "parents4safe schools.org", "screensandkids.org", "waituntil8th.org", "center4research.org", "breastcancerfund.org", "ewg.org", "skindeep.org", "foodandwaterwatch.org", "centerforfoodsafety.org", "non-gmoreport.com", "responsibletechnology.org", "gmwatch.org", "organicconsumers.org", "farmwars.info"];
 
   function scoreDomain(url) {
     if (!url) return 0;
@@ -226,6 +321,12 @@
 
     // Path looks like /blog/yyyy/mm/dd/ — generic CMS date structure
     if (/\/\d{4}\/\d{2}\/\d{2}\//.test(lower)) { raw += 3; hits.push("date-stamped URL"); }
+
+    // AI-generated content farms often use /ai-*/ or /generated/ paths
+    if (/\/(ai|generated|auto|bot)\b/.test(lower)) { raw += 15; hits.push("AI path segment"); }
+
+    // Subdomain patterns: blog., news., articles. are neutral; ai., auto., bot. are suspicious
+    if (/^https?:\/\/(ai|auto|bot|generated)\./.test(lower)) { raw += 12; hits.push("AI subdomain"); }
 
     return Math.max(0, Math.min(100, raw + 30)); // re-baseline so most domains read ~30
   }

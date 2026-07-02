@@ -82,11 +82,13 @@
   background: rgba(0,0,0,0.08);
 }
 
-/* ── 3. Hover tooltip (appears next to badge on hover) ─────── */
+/* ── 3. Hover tooltip (smart positioning) ─────────────────── */
 
 .hz-ai-tooltip {
   position: absolute;
+  /* Default: show to the right */
   left: calc(100% + 8px);
+  right: auto;
   top: 50%;
   transform: translateY(-50%) translateX(-4px);
   z-index: 2147483647;
@@ -97,8 +99,8 @@
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   line-height: 1.6;
-  max-width: 340px;
-  min-width: 220px;
+  max-width: min(340px, calc(100vw - 100px));
+  min-width: 200px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.35);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -106,6 +108,23 @@
   opacity: 0;
   transition: opacity 0.15s ease, transform 0.15s ease;
   white-space: normal;
+}
+
+/* When card is in the right half of viewport, show tooltip to the LEFT */
+@media (min-width: 600px) {
+  .hz-ai-border:nth-child(n+5) .hz-ai-tooltip,
+  .hz-ai-border[data-hz-position="right"] .hz-ai-tooltip {
+    left: auto;
+    right: calc(100% + 8px);
+    transform: translateY(-50%) translateX(4px);
+  }
+  
+  .hz-ai-border:nth-child(n+5):hover > .hz-ai-tooltip,
+  .hz-ai-border[data-hz-position="right"]:hover > .hz-ai-tooltip,
+  .hz-ai-border:nth-child(n+5) .hz-ai-badge:hover ~ .hz-ai-tooltip,
+  .hz-ai-border[data-hz-position="right"] .hz-ai-badge:hover ~ .hz-ai-tooltip {
+    transform: translateY(-50%) translateX(0);
+  }
 }
 
 /* Show tooltip when hovering the badge */
