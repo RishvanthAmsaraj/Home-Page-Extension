@@ -10,11 +10,11 @@
 
   const SELECTORS = {
     google: {
-      result: "div.g, div[jscontroller][data-hveid] div.g, [data-snf] .g",
+      result: "div.g, div[data-hveid] div.g, [data-snf] .g, div[data-ved] div[data-sokoban-container], div[data-sokoban-container], #search div[data-ved] > div, #rso > div > div",
       anchor: "a[href]:not([role='button'])",
       title: "h3",
-      snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230",
-      url: "cite, .tjvcx, .dyjrff",
+      snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230, span[data-st], div[data-sncf] > div > span, div.VwiC3b",
+      url: "cite, .tjvcx, .dyjrff, div.TbwUpd, span.V6YFzc",
     },
     duckduckgo: {
       result: "article[data-testid='result'], .result",
@@ -87,9 +87,12 @@
   }
 
   function extractResultData(card, sel) {
-    const anchors = card.querySelectorAll(sel.anchor);
+    // For Google, try the direct link inside the card first
     let url = "";
     let titleEl = null;
+    
+    // Try to find the main result link
+    const anchors = card.querySelectorAll(sel.anchor);
     for (const a of anchors) {
       const href = a.getAttribute("href");
       if (href && /^https?:\/\//i.test(href)) {
@@ -98,6 +101,17 @@
         break;
       }
     }
+    
+    // Fallback: look for any link with http
+    if (!url) {
+      const allLinks = card.querySelectorAll("a[href^='http']");
+      for (const a of allLinks) {
+        url = a.getAttribute("href");
+        titleEl = a;
+        break;
+      }
+    }
+    
     if (!url) return null;
 
     const title =
@@ -105,8 +119,13 @@
       (titleEl && titleEl.textContent?.trim()) ||
       "";
 
-    const snippetEl = card.querySelector(sel.snippet);
-    const snippet = (snippetEl && snippetEl.textContent.trim()) || "";
+    // Try multiple snippet selectors and combine them
+    const snippetEls = card.querySelectorAll(sel.snippet);
+    let snippet = "";
+    for (const el of snippetEls) {
+      const text = el.textContent.trim();
+      if (text.length > snippet.length) snippet = text;
+    }
 
     if (!title && !snippet) return null;
 
@@ -253,8 +272,16 @@
     }
     const sel = SELECTORS[engine];
     if (!sel) return;
-    const cards = document.querySelectorAll(sel.result);
-    console.log("[AI Signal] rescanning", cards.length, "cards");
+    
+    // Try primary selector first, then fallbacks
+    let cards = document.querySelectorAll(sel.result);
+    
+    // If no cards found with primary selector, try broader fallbacks for Google
+    if (cards.length === 0 && engine === "google") {
+      cards = document.querySelectorAll("#rso > div, #search .g, [data-sokoban-container]");
+    }
+    
+    console.log("[AI Signal] rescanning", cards.length, "cards on", engine);
     cards.forEach(processCard);
   }
 
@@ -270,9 +297,26 @@
         if (m.addedNodes && m.addedNodes.length) {
           for (const n of m.addedNodes) {
             if (n.nodeType !== 1) continue;
-            if (n.matches && n.matches(sel.result)) processCard(n);
+            
+            // Try primary selector
+            if (n.matches && n.matches(sel.result)) {
+              processCard(n);
+              continue;
+            }
+            
+            // Fallback for Google
+            if (engine === "google" && n.matches && (n.matches("#rso > div") || n.matches("[data-sokoban-container]"))) {
+              processCard(n);
+              continue;
+            }
+            
             const inner = n.querySelectorAll ? n.querySelectorAll(sel.result) : [];
             inner.forEach(processCard);
+            
+            // Also check inner for Google fallbacks
+            if (engine === "google" && n.querySelectorAll) {
+              n.querySelectorAll("#rso > div, [data-sokoban-container]").forEach(processCard);
+            }
           }
         }
       }
