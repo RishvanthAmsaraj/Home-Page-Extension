@@ -166,6 +166,7 @@
     const badge = document.createElement("span");
     badge.className = "hz-ai-badge";
     badge.dataset.band = band;
+    badge.dataset.hostname = hostname;
     badge.innerHTML = `
       <span class="hz-ai-dot" aria-hidden="true"></span>
       <span class="hz-ai-pct">AI: ${score.overall}%</span>
@@ -206,19 +207,76 @@
     });
   }
 
-  function injectTooltip(card, score) {
+  function injectTooltip(card, score, hostname) {
     const old = card.querySelector(".hz-ai-tooltip");
     if (old) old.remove();
 
     const band = bandFor(score.overall);
     const tip = document.createElement("div");
     tip.className = "hz-ai-tooltip";
+    
+    // Build reasons text
+    const reasonsText = score.reasons.length > 0 
+      ? escapeAttr(score.reasons.join(" · "))
+      : "No strong AI signals detected";
+    
+    // Check if user has previously marked this domain
+    const userMark = prefs.aiUserMarks && prefs.aiUserMarks[hostname];
+    const userMarkText = userMark 
+      ? `<div class="hz-user-mark">You marked this as: <strong>${userMark === 'human' ? 'Human' : 'AI'}</strong></div>`
+      : '';
+    
     tip.innerHTML = `
       <strong>AI Signal: ${score.overall}% · ${bandLabel(band)}</strong>
-      <div class="hz-reasons">${escapeAttr(score.reasons.join(" · ") || "no strong signals")}</div>
+      <div class="hz-reasons">${reasonsText}</div>
+      ${userMarkText}
+      <div class="hz-actions">
+        <button class="hz-mark-human" data-hostname="${escapeAttr(hostname)}">✓ Human</button>
+        <button class="hz-mark-ai" data-hostname="${escapeAttr(hostname)}">✗ AI</button>
+      </div>
       <div class="hz-foot">Heuristic estimate — not a definitive verdict</div>
     `;
+    
+    // Add feedback button handlers
+    tip.querySelector(".hz-mark-human")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      markDomain(hostname, "human");
+    });
+    tip.querySelector(".hz-mark-ai")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      markDomain(hostname, "ai");
+    });
+    
     card.appendChild(tip);
+  }
+
+  function markDomain(hostname, mark) {
+    prefs.aiUserMarks = prefs.aiUserMarks || {};
+    prefs.aiUserMarks[hostname] = mark;
+    try {
+      chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
+    } catch (err) { /* no-op */ }
+    
+    // Update all badges for this domain
+    document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
+      const tip = c.querySelector(".hz-ai-tooltip");
+      if (tip) {
+        const markDiv = tip.querySelector(".hz-user-mark");
+        if (markDiv) {
+          markDiv.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
+        } else {
+          const reasonsDiv = tip.querySelector(".hz-reasons");
+          if (reasonsDiv) {
+            const newMark = document.createElement("div");
+            newMark.className = "hz-user-mark";
+            newMark.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
+            reasonsDiv.after(newMark);
+          }
+        }
+      }
+    });
   }
 
   function processCard(card) {
@@ -256,7 +314,7 @@
     const band = bandFor(score.overall);
     card.classList.add("hz-ai-border", "hz-ai-" + band);
     injectBadge(card, score, data.hostname);
-    injectTooltip(card, score);
+    injectTooltip(card, score, data.hostname);
 
     // Hide-above threshold
     if (prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {

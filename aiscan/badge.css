@@ -11,41 +11,16 @@
    All use CSS custom properties for theme adaptability.
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Colored left border on result cards ─────────────────── */
+/* ── 1. Result card styling (no side border, just badge) ──── */
 
 .hz-ai-border {
   position: relative !important;
 }
 
-.hz-ai-border::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 4px;
-  border-radius: 0 2px 2px 0;
-  pointer-events: none;
-  z-index: 1;
-}
-
-/* Scoped hover - only show tooltip for the specific card being hovered */
-.hz-ai-border:hover > .hz-ai-tooltip {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-
-/* Prevent tooltip from showing on parent containers that contain nested results */
-.hz-ai-border:has(> .hz-ai-border) > .hz-ai-tooltip,
-.hz-ai-border:has(.hz-ai-border) > .hz-ai-tooltip {
-  display: none !important;
-}
-
-/* Band colours */
-.hz-ai-low::before  { background: #22c55e; }  /* green-500  */
-.hz-ai-med::before  { background: #f59e0b; }  /* amber-500  */
-.hz-ai-high::before { background: #ef4444; }  /* red-500    */
+/* Band colours — used by badge only now */
+.hz-ai-low  { }
+.hz-ai-med  { }
+.hz-ai-high { }
 
 /* ── 2. Inline badge (injected next to title or URL) ────────── */
 
@@ -65,6 +40,7 @@
   cursor: help;
   user-select: none;
   -webkit-user-select: none;
+  position: relative;
 }
 
 /* Light-theme badge backgrounds */
@@ -106,12 +82,13 @@
   background: rgba(0,0,0,0.08);
 }
 
-/* ── 3. Hover tooltip ───────────────────────────────────────── */
+/* ── 3. Hover tooltip (appears next to badge on hover) ─────── */
 
 .hz-ai-tooltip {
   position: absolute;
-  left: 12px;
-  top: 0;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
   z-index: 2147483647;
   background: rgba(15, 15, 15, 0.95);
   color: #f0f0f0;
@@ -127,13 +104,25 @@
   -webkit-backdrop-filter: blur(12px);
   pointer-events: none;
   opacity: 0;
-  transform: translateY(4px);
   transition: opacity 0.15s ease, transform 0.15s ease;
   white-space: normal;
 }
 
-/* Old global hover rule - disabled in favor of scoped rule above */
-/* .hz-ai-border:hover .hz-ai-tooltip { ... } */
+/* Show tooltip when hovering the badge */
+.hz-ai-badge:hover + .hz-ai-tooltip,
+.hz-ai-badge:hover ~ .hz-ai-tooltip,
+.hz-ai-tooltip:hover {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
+
+/* Also show on card hover for discoverability */
+.hz-ai-border:hover > .hz-ai-tooltip {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  pointer-events: auto;
+}
 
 /* Tooltip header */
 .hz-ai-tooltip strong {
@@ -147,6 +136,49 @@
 .hz-ai-tooltip .hz-reasons {
   opacity: 0.75;
   margin: 4px 0;
+}
+
+/* User mark display */
+.hz-ai-tooltip .hz-user-mark {
+  color: #86efac;
+  font-size: 12px;
+  margin: 6px 0;
+  padding: 4px 8px;
+  background: rgba(34, 197, 94, 0.15);
+  border-radius: 6px;
+}
+
+/* Action buttons */
+.hz-ai-tooltip .hz-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.hz-ai-tooltip .hz-actions button {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.1);
+  color: #f0f0f0;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.hz-ai-tooltip .hz-actions button:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.hz-ai-tooltip .hz-actions .hz-mark-human:hover {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.hz-ai-tooltip .hz-actions .hz-mark-ai:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* Tooltip footer */
