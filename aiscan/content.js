@@ -10,7 +10,9 @@
 
   const SELECTORS = {
     google: {
-      result: "div.g, div[data-hveid] div.g, [data-snf] .g, div[data-ved] div[data-sokoban-container], div[data-sokoban-container], #search div[data-ved] > div, #rso > div > div",
+      // Each result is a direct child of #rso or nested in data-sokoban-container
+      // We target the INNER result divs, not the container
+      result: "#rso > div > div.g, #rso .g, div[data-sokoban-container] .g, #search .g, [data-snf] .g, div.g[data-hveid], div[jscontroller][data-hveid]",
       anchor: "a[href]:not([role='button'])",
       title: "h3",
       snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230, span[data-st], div[data-sncf] > div > span, div.VwiC3b",
@@ -273,12 +275,14 @@
     const sel = SELECTORS[engine];
     if (!sel) return;
     
-    // Try primary selector first, then fallbacks
+    // Try primary selector first
     let cards = document.querySelectorAll(sel.result);
     
     // If no cards found with primary selector, try broader fallbacks for Google
+    // BUT filter to only include elements that have an h3 or link (actual results, not containers)
     if (cards.length === 0 && engine === "google") {
-      cards = document.querySelectorAll("#rso > div, #search .g, [data-sokoban-container]");
+      const candidates = document.querySelectorAll("#rso > div > div, [data-sokoban-container] > div");
+      cards = Array.from(candidates).filter(el => el.querySelector("h3") || el.querySelector("a[href^='http']"));
     }
     
     console.log("[AI Signal] rescanning", cards.length, "cards on", engine);
@@ -304,19 +308,16 @@
               continue;
             }
             
-            // Fallback for Google
-            if (engine === "google" && n.matches && (n.matches("#rso > div") || n.matches("[data-sokoban-container]"))) {
-              processCard(n);
+            // For Google, check if this is a result container that has inner results
+            if (engine === "google" && n.matches && n.matches("#rso > div")) {
+              // Process children of this container, not the container itself
+              const innerResults = n.querySelectorAll(sel.result);
+              innerResults.forEach(processCard);
               continue;
             }
             
             const inner = n.querySelectorAll ? n.querySelectorAll(sel.result) : [];
             inner.forEach(processCard);
-            
-            // Also check inner for Google fallbacks
-            if (engine === "google" && n.querySelectorAll) {
-              n.querySelectorAll("#rso > div, [data-sokoban-container]").forEach(processCard);
-            }
           }
         }
       }

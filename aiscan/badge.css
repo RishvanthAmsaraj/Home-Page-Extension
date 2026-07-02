@@ -29,6 +29,19 @@
   z-index: 1;
 }
 
+/* Scoped hover - only show tooltip for the specific card being hovered */
+.hz-ai-border:hover > .hz-ai-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Prevent tooltip from showing on parent containers that contain nested results */
+.hz-ai-border:has(> .hz-ai-border) > .hz-ai-tooltip,
+.hz-ai-border:has(.hz-ai-border) > .hz-ai-tooltip {
+  display: none !important;
+}
+
 /* Band colours */
 .hz-ai-low::before  { background: #22c55e; }  /* green-500  */
 .hz-ai-med::before  { background: #f59e0b; }  /* amber-500  */
@@ -119,11 +132,8 @@
   white-space: normal;
 }
 
-.hz-ai-border:hover .hz-ai-tooltip {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
+/* Old global hover rule - disabled in favor of scoped rule above */
+/* .hz-ai-border:hover .hz-ai-tooltip { ... } */
 
 /* Tooltip header */
 .hz-ai-tooltip strong {
