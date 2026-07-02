@@ -158,13 +158,6 @@
     return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
   }
 
-  function trustLabel(trust) {
-    if (trust >= 80) return "★★★";
-    if (trust >= 60) return "★★☆";
-    if (trust >= 40) return "★☆☆";
-    return "☆☆☆";
-  }
-
   function injectBadge(card, score, hostname) {
     // Remove old badge if any
     const old = card.querySelector(".hz-ai-badge");
@@ -176,14 +169,10 @@
     badge.dataset.band = band;
     badge.dataset.hostname = hostname;
     
-    // Compact format: AI% + trust stars
-    const trustStars = trustLabel(score.trust);
-    const trustColor = score.trust >= 70 ? "#22c55e" : score.trust >= 40 ? "#f59e0b" : "#ef4444";
-    
+    // Simple format: just AI% with color dot
     badge.innerHTML = `
       <span class="hz-ai-dot" aria-hidden="true"></span>
       <span class="hz-ai-pct">${score.overall}%</span>
-      <span class="hz-ai-trust" style="color:${trustColor}" title="Trust: ${score.trust}%">${trustStars}</span>
       <button class="hz-ai-dismiss" type="button" aria-label="Dismiss" title="Hide for this domain">✕</button>
     `;
 
@@ -195,6 +184,30 @@
       // Fallback: prepend to card
       card.insertBefore(badge, card.firstChild);
     }
+
+    // Click handler to toggle tooltip
+    badge.addEventListener("click", (e) => {
+      // Don't toggle if clicking dismiss button
+      if (e.target.closest(".hz-ai-dismiss")) return;
+      
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const tip = card.querySelector(".hz-ai-tooltip");
+      if (tip) {
+        // Toggle visibility
+        const isVisible = tip.classList.contains("hz-visible");
+        
+        // Hide all other tooltips first
+        document.querySelectorAll(".hz-ai-tooltip.hz-visible").forEach(t => {
+          t.classList.remove("hz-visible");
+        });
+        
+        if (!isVisible) {
+          tip.classList.add("hz-visible");
+        }
+      }
+    });
 
     // Dismiss handler
     badge.querySelector(".hz-ai-dismiss").addEventListener("click", (e) => {
@@ -220,6 +233,22 @@
     });
   }
 
+  // Cache for external trust checks
+  const trustCache = {};
+  
+  async function checkExternalTrust(hostname) {
+    // Return cached result if available
+    if (trustCache[hostname] !== undefined) {
+      return trustCache[hostname];
+    }
+    
+    // For now, return null (no external check)
+    // In the future, this could call VirusTotal, WOT, etc.
+    // But we need to respect rate limits and user privacy
+    trustCache[hostname] = null;
+    return null;
+  }
+
   function injectTooltip(card, score, hostname) {
     const old = card.querySelector(".hz-ai-tooltip");
     if (old) old.remove();
@@ -227,18 +256,6 @@
     const band = bandFor(score.overall);
     const tip = document.createElement("div");
     tip.className = "hz-ai-tooltip";
-    
-    // Smart positioning: if card is in right half of viewport, show tooltip on left
-    const cardRect = card.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const isRightSide = cardRect.left > (viewportWidth / 2);
-    
-    if (isRightSide) {
-      tip.style.left = "auto";
-      tip.style.right = "calc(100% + 8px)";
-      tip.style.transform = "translateY(-50%) translateX(4px)";
-      card.dataset.hzPosition = "right";
-    }
     
     // Build reasons text
     const reasonsText = score.reasons.length > 0 
@@ -251,18 +268,17 @@
       ? `<div class="hz-user-mark">You marked this as: <strong>${userMark === 'human' ? 'Human' : 'AI'}</strong></div>`
       : '';
     
-    // Trust rating display
-    const trustColor = score.trust >= 70 ? "#22c55e" : score.trust >= 40 ? "#f59e0b" : "#ef4444";
-    const trustText = score.trust >= 80 ? "Highly trusted" : score.trust >= 60 ? "Trusted" : score.trust >= 40 ? "Moderate trust" : "Low trust";
-    
     tip.innerHTML = `
       <strong>AI Signal: ${score.overall}% · ${bandLabel(band)}</strong>
-      <div class="hz-trust" style="color:${trustColor}">Trust: ${score.trust}% · ${trustText}</div>
       <div class="hz-reasons">${reasonsText}</div>
       ${userMarkText}
       <div class="hz-actions">
         <button class="hz-mark-human" data-hostname="${escapeAttr(hostname)}">✓ Human</button>
         <button class="hz-mark-ai" data-hostname="${escapeAttr(hostname)}">✗ AI</button>
+      </div>
+      <div class="hz-trust-check">
+        <button class="hz-check-trust" data-hostname="${escapeAttr(hostname)}">🔍 Check Trust Score</button>
+        <span class="hz-trust-result"></span>
       </div>
       <div class="hz-foot">Heuristic estimate — not a definitive verdict</div>
     `;
@@ -277,6 +293,23 @@
       e.preventDefault();
       e.stopPropagation();
       markDomain(hostname, "ai");
+    });
+    
+    // Add trust check handler
+    tip.querySelector(".hz-check-trust")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const btn = e.target;
+      btn.textContent = "Checking...";
+      btn.disabled = true;
+      
+      // Simulate external check (replace with real API call in future)
+      setTimeout(() => {
+        const result = tip.querySelector(".hz-trust-result");
+        result.innerHTML = `<br><em>External trust APIs require API keys.<br>Coming soon: VirusTotal, WOT integration.</em>`;
+        btn.textContent = "🔍 Check Trust Score";
+        btn.disabled = false;
+      }, 500);
     });
     
     card.appendChild(tip);

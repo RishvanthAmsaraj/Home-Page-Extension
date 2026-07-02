@@ -37,7 +37,7 @@
   white-space: nowrap;
   vertical-align: middle;
   margin-left: 6px;
-  cursor: help;
+  cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
   position: relative;
@@ -48,11 +48,36 @@
 .hz-ai-badge[data-band="med"]  { background: #fef3c7; color: #92400e; }
 .hz-ai-badge[data-band="high"] { background: #fee2e2; color: #991b1b; }
 
-/* Trust stars inside badge */
-.hz-ai-trust {
-  font-size: 10px;
-  margin-left: 2px;
-  letter-spacing: -1px;
+/* Trust check button in tooltip */
+.hz-trust-check {
+  margin: 8px 0 4px;
+}
+
+.hz-check-trust {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.hz-check-trust:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.hz-check-trust:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.hz-trust-result {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #93c5fd;
 }
 
 /* Dot indicator */
@@ -89,7 +114,7 @@
   background: rgba(0,0,0,0.08);
 }
 
-/* ── 3. Hover tooltip (smart positioning) ─────────────────── */
+/* ── 3. Click tooltip (hidden by default, shown on click) ─── */
 
 .hz-ai-tooltip {
   position: absolute;
@@ -119,32 +144,19 @@
 
 /* When card is in the right half of viewport, show tooltip to the LEFT */
 @media (min-width: 600px) {
-  .hz-ai-border:nth-child(n+5) .hz-ai-tooltip,
   .hz-ai-border[data-hz-position="right"] .hz-ai-tooltip {
     left: auto;
     right: calc(100% + 8px);
     transform: translateY(-50%) translateX(4px);
   }
   
-  .hz-ai-border:nth-child(n+5):hover > .hz-ai-tooltip,
-  .hz-ai-border[data-hz-position="right"]:hover > .hz-ai-tooltip,
-  .hz-ai-border:nth-child(n+5) .hz-ai-badge:hover ~ .hz-ai-tooltip,
-  .hz-ai-border[data-hz-position="right"] .hz-ai-badge:hover ~ .hz-ai-tooltip {
+  .hz-ai-border[data-hz-position="right"] .hz-ai-tooltip.hz-visible {
     transform: translateY(-50%) translateX(0);
   }
 }
 
-/* Show tooltip when hovering the badge */
-.hz-ai-badge:hover + .hz-ai-tooltip,
-.hz-ai-badge:hover ~ .hz-ai-tooltip,
-.hz-ai-tooltip:hover {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-  pointer-events: auto;
-}
-
-/* Also show on card hover for discoverability */
-.hz-ai-border:hover > .hz-ai-tooltip {
+/* Show tooltip when it has the visible class (set via JS click) */
+.hz-ai-tooltip.hz-visible {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
   pointer-events: auto;
