@@ -1,55 +1,121 @@
 /* ════════════════════════════════════════════════════════════════════
    Horizon AI Signal — SERP content script
+   v2.0.7 — Reverted to v1.7.8 SELECTORS engine (known working),
+            kept v2.0.x UI (click-to-expand panel inside badge).
    ════════════════════════════════════════════════════════════════════ */
 
 (function () {
   "use strict";
-  
-  const STORAGE_KEY = "***";
-  
-  // Check if we're on a search page
-  const hostname = location.hostname || "";
-  const isGoogle = hostname.includes("google.");
-  const isDuckDuckGo = hostname.includes("duckduckgo.");
-  const isBrave = hostname.includes("search.brave.");
-  
-  if (!isGoogle && !isDuckDuckGo && !isBrave) {
+  console.log("[AI Signal] content script loaded on", location.hostname, location.pathname);
+
+  const STORAGE_KEY = "hz";
+
+  /* ──────────────────────────────────────────────────────────────────
+     Selector library — verified working on Google, DDG, Brave SERPs
+     ────────────────────────────────────────────────────────────────── */
+  const SELECTORS = {
+    google: {
+      // Each result is a direct child of #rso or nested in data-sokoban-container
+      // We target the INNER result divs, not the container
+      // EXCLUDE: "What people are saying" / trending discussions (g-blk)
+      result: "#rso > div > div.g:not(.g-blk):not([data-hveid='']):not([data-sokoban-container] .g-blk), #rso .g:not(.g-blk), div[data-sokoban-container] .g:not(.g-blk), #search .g:not(.g-blk), [data-snf] .g:not(.g-blk), div.g[data-hveid]:not(.g-blk), div[jscontroller][data-hveid]:not(.g-blk)",
+      anchor: "a[href]:not([role='button'])",
+      title: "h3",
+      snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230, span[data-st], div[data-sncf] > div > span, div.VwiC3b",
+      url: "cite, .tjvcx, .dyjrff, div.TbwUpd, span.V6YFzc",
+    },
+    duckduckgo: {
+      result: "article[data-testid='result'], .result",
+      anchor: "a[data-testid='result-title-a'], h2 a",
+      title: "h2 a, h2",
+      snippet: "[data-result='snippet'], .result__snippet",
+      url: "[data-testid='result-extras-url-link'], .result__url",
+    },
+    brave: {
+      result: ".snippet[data-type='web'], .snippet",
+      anchor: "a.h, a.result-header, .title a",
+      title: ".title, .snippet-title",
+      snippet: ".snippet-description, .snippet-content",
+      url: ".snippet-url, .url",
+    },
+  };
+
+  function detectEngine() {
+    const h = location.hostname || "";
+    if (h.includes("google.")) return "google";
+    if (h.includes("duckduckgo.")) return "duckduckgo";
+    if (h.includes("search.brave.")) return "brave";
+    return null;
+  }
+
+  const engine = detectEngine();
+  console.log("[AI Signal] engine:", engine);
+  if (!engine) {
+    console.log("[AI Signal] unsupported host, bailing");
     return;
   }
 
-  // Default prefs
-  let prefs = {
+  const DEFAULT_PREFS = {
     aiSignal: false,
     aiSensitivity: "med",
     aiHideAbove: 0,
     aiDismissed: {},
-    aiUserMarks: {}
+    aiUserMarks: {},
   };
 
-  // Load prefs from storage
+  let prefs = { ...DEFAULT_PREFS };
+
   function loadPrefs() {
-    console.log("[AI Signal] Loading prefs...");
     try {
       chrome.storage.sync.get([STORAGE_KEY], (data) => {
-        console.log("[AI Signal] Storage data:", data);
-        const stored = (data && data[STORAGE_KEY]) || {};
-        console.log("[AI Signal] Stored:", stored);
-        prefs = { ...prefs, ...stored };
-        console.log("[AI Signal] Prefs:", prefs);
-        init();
+        console.log("[AI Signal] storage raw:", data);
+        const s = (data && data[STORAGE_KEY]) || {};
+        prefs = { ...DEFAULT_PREFS, ...s };
+        console.log("[AI Signal] prefs resolved:", prefs);
+        if (typeof AIScore !== "undefined") {
+          AIScore.setCalibration(prefs.aiSensitivity);
+        }
+        rescanAll();
       });
     } catch (e) {
-      console.log("[AI Signal] Storage error:", e);
-      init();
+      console.log("[AI Signal] storage error:", e);
     }
   }
 
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "sync" || !changes[STORAGE_KEY]) return;
+      prefs = { ...DEFAULT_PREFS, ...(changes[STORAGE_KEY].newValue || {}) };
+      if (typeof AIScore !== "undefined") {
+        AIScore.setCalibration(prefs.aiSensitivity);
+      }
+      rescanAll();
+    });
+  } catch (e) { /* no-op */ }
+
+  /* ──────────────────────────────────────────────────────────────────
+     Helpers
+     ────────────────────────────────────────────────────────────────── */
   function extractHostname(href) {
     try {
-      return new URL(href).hostname.replace(/^www\./, "");
+      const u = new URL(href);
+      return u.hostname.replace(/^www\./, "");
     } catch (e) {
       return "";
     }
+  }
+
+  function escapeAttr(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function cssEscape(s) {
+    if (window.CSS && CSS.escape) return CSS.escape(s);
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
   }
 
   function bandFor(pct) {
@@ -59,243 +125,299 @@
   }
 
   function bandLabel(band) {
-    return band === "low" ? "Human-like" : band === "med" ? "Mixed" : "Likely AI";
+    return band === "low" ? "Human-like" : band === "med" ? "Mixed signals" : "Likely AI";
   }
 
-  function escapeHtml(s) {
-    const div = document.createElement("div");
-    div.textContent = s;
-    return div.innerHTML;
-  }
+  /* ──────────────────────────────────────────────────────────────────
+     Extract data from a result card
+     ────────────────────────────────────────────────────────────────── */
+  function extractResultData(card, sel) {
+    let url = "";
+    let titleEl = null;
 
-  // Find all search result cards
-  function findResults() {
-    const results = [];
-    const seen = new Set();
-    
-    if (isGoogle) {
-      // Find all h3 elements in search results and get their containers
-      const titles = document.querySelectorAll("#search h3, #rso h3, #center_col h3");
-      console.log("[AI Signal] Found", titles.length, "h3 titles");
-      
-      titles.forEach((title, i) => {
-        // Walk up to find the result container
-        let card = title.closest("div[data-sokoban-container]") || 
-                   title.closest(".g") ||
-                   title.closest("[data-ved]");
-        
-        // Fallback: use parent if no match
-        if (!card && title.parentElement) {
-          card = title.parentElement.closest("div[data-sokoban-container], .g, [data-ved]") || title.parentElement;
-        }
-        
-        if (!card || seen.has(card)) return;
-        seen.add(card);
-        
-        if (card.dataset.hzDone) return;
-        
-        // Must have a real link
-        const link = card.querySelector("a[href^='http']");
-        if (!link) return;
-        
-        results.push(card);
-      });
+    const anchors = card.querySelectorAll(sel.anchor);
+    for (const a of anchors) {
+      const href = a.getAttribute("href");
+      if (href && /^https?:\/\//i.test(href)) {
+        url = href;
+        titleEl = a;
+        break;
+      }
     }
-    
-    console.log("[AI Signal] Returning", results.length, "results");
-    return results;
+
+    if (!url) {
+      const allLinks = card.querySelectorAll("a[href^='http']");
+      for (const a of allLinks) {
+        url = a.getAttribute("href");
+        titleEl = a;
+        break;
+      }
+    }
+
+    if (!url) return null;
+
+    const title =
+      (card.querySelector(sel.title) || {}).textContent?.trim() ||
+      (titleEl && titleEl.textContent?.trim()) ||
+      "";
+
+    const snippetEls = card.querySelectorAll(sel.snippet);
+    let snippet = "";
+    for (const el of snippetEls) {
+      const text = el.textContent.trim();
+      if (text.length > snippet.length) snippet = text;
+    }
+
+    if (!title && !snippet) return null;
+
+    return { url, hostname: extractHostname(url), title, snippet };
   }
 
-  // Extract data from a result card
-  function extractData(card) {
-    const link = card.querySelector("a[href^='http']");
-    const title = card.querySelector("h3");
-    const snippet = card.querySelector(".VwiC3b, .yXK7lf, [data-content-feature], .st");
-    
-    if (!link || !title) return null;
-    
-    const url = link.getAttribute("href");
-    const hostname = extractHostname(url);
-    
-    if (prefs.aiDismissed && prefs.aiDismissed[hostname]) return null;
-    
-    return {
-      url,
-      hostname,
-      title: title.textContent.trim(),
-      snippet: snippet ? snippet.textContent.trim() : ""
-    };
+  /* ──────────────────────────────────────────────────────────────────
+     Skip AI Overview / "What people are saying" / discussion cards
+     ────────────────────────────────────────────────────────────────── */
+  function shouldSkipCard(card) {
+    const text = card.textContent || "";
+    const html = card.innerHTML || "";
+
+    if (card.closest(".g-blk")) return true;
+    if (card.querySelector("[data-attrid='kc:/discussion/forum']")) return true;
+    if (text.includes("What people are saying") || text.includes("trending posts")) return true;
+    if (card.querySelector("g-section-with-header")) return true;
+
+    if (card.closest("[data-attrid='wa:/description']")) return true;
+    if (card.querySelector("[data-attrid='wa:/description']")) return true;
+    if (text.includes("AI Overview") || text.includes("AI-generated")) return true;
+    if (card.querySelector("g-generative-ai")) return true;
+    if (card.closest("g-generative-ai")) return true;
+
+    const nestedResults = card.querySelectorAll(".g, article");
+    if (nestedResults.length > 3) return true;
+
+    return false;
   }
 
-  // Create badge element
-  function createBadge(score, hostname) {
+  /* ──────────────────────────────────────────────────────────────────
+     Badge — compact pill with embedded panel (v2.0.x UX)
+     ────────────────────────────────────────────────────────────────── */
+  function injectBadge(card, score, hostname) {
+    const old = card.querySelector(".hz-ai-badge");
+    if (old) old.remove();
+
     const band = bandFor(score.overall);
     const badge = document.createElement("span");
     badge.className = "hz-ai-badge";
     badge.dataset.band = band;
     badge.dataset.hostname = hostname;
-    
+
     badge.innerHTML = `
-      <span class="hz-ai-dot"></span>
+      <span class="hz-ai-dot" aria-hidden="true"></span>
       <span class="hz-ai-pct">${score.overall}%</span>
-      <button class="hz-ai-dismiss" title="Hide for this domain">✕</button>
+      <button class="hz-ai-dismiss" type="button" aria-label="Dismiss" title="Hide for this domain">✕</button>
+      <div class="hz-ai-panel">
+        <div class="hz-panel-header">
+          <span class="hz-panel-dot" data-band="${band}"></span>
+          <strong>${score.overall}% · ${bandLabel(band)}</strong>
+        </div>
+        <div class="hz-panel-reasons">${escapeAttr((score.reasons && score.reasons.length ? score.reasons.slice(0, 3).join(" · ") : "No strong AI signals detected"))}</div>
+        <div class="hz-panel-actions">
+          <button class="hz-btn hz-btn-human">✓ Human</button>
+          <button class="hz-btn hz-btn-ai">✗ AI</button>
+        </div>
+        <div class="hz-panel-foot">Heuristic estimate — not a definitive verdict</div>
+      </div>
     `;
-    
-    // Click to expand - use mousedown to intercept before link click
+
+    // Insert AFTER the title h3 (not inside it, so clicks on the badge don't navigate)
+    const titleEl = card.querySelector("h3");
+    if (titleEl && titleEl.parentElement) {
+      titleEl.parentElement.insertBefore(badge, titleEl.nextSibling);
+    } else {
+      card.insertBefore(badge, card.firstChild);
+    }
+
+    // Click badge to expand panel — mousedown so we beat the link's click handler
     badge.addEventListener("mousedown", (e) => {
       if (e.target.closest(".hz-ai-dismiss")) return;
       e.preventDefault();
       e.stopPropagation();
-      
-      document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach(b => {
+
+      // Close any other expanded badge first
+      document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach((b) => {
         if (b !== badge) b.classList.remove("hz-expanded");
       });
-      
       badge.classList.toggle("hz-expanded");
     });
-    
-    // Dismiss
-    badge.querySelector(".hz-ai-dismiss").addEventListener("mousedown", (e) => {
+
+    // Dismiss button
+    const dismissBtn = badge.querySelector(".hz-ai-dismiss");
+    dismissBtn.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      badge.remove();
-      prefs.aiDismissed = prefs.aiDismissed || {};
-      prefs.aiDismissed[hostname] = true;
-      try {
-        chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
-      } catch (err) {}
+      dismissForDomain(hostname);
     });
-    
-    return badge;
+
+    // Mark-as-human / Mark-as-AI buttons inside the panel
+    badge.querySelector(".hz-btn-human").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      markDomain(hostname, "human", badge);
+    });
+    badge.querySelector(".hz-btn-ai").addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      markDomain(hostname, "ai", badge);
+    });
   }
 
-  // Create panel element
-  function createPanel(score, hostname) {
-    const band = bandFor(score.overall);
-    const panel = document.createElement("div");
-    panel.className = "hz-ai-panel";
-    
-    const reasonsText = score.reasons.length > 0 
-      ? escapeHtml(score.reasons.slice(0, 3).join(" · "))
-      : "No strong signals";
-    
-    panel.innerHTML = `
-      <div class="hz-panel-header">
-        <span class="hz-panel-dot" data-band="${band}"></span>
-        <strong>${score.overall}% · ${bandLabel(band)}</strong>
-      </div>
-      <div class="hz-panel-reasons">${reasonsText}</div>
-      <div class="hz-panel-actions">
-        <button class="hz-btn hz-btn-human" data-mark="human">✓ Human</button>
-        <button class="hz-btn hz-btn-ai" data-mark="ai">✗ AI</button>
-      </div>
-      <div class="hz-panel-foot">Heuristic estimate</div>
-    `;
-    
-    panel.querySelectorAll(".hz-btn").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const mark = btn.dataset.mark;
-        prefs.aiUserMarks = prefs.aiUserMarks || {};
-        prefs.aiUserMarks[hostname] = mark;
-        try {
-          chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
-        } catch (err) {}
-        
-        const foot = panel.querySelector(".hz-panel-foot");
-        foot.textContent = `Marked as ${mark === 'human' ? 'Human' : 'AI'}`;
+  function dismissForDomain(hostname) {
+    prefs.aiDismissed = prefs.aiDismissed || {};
+    prefs.aiDismissed[hostname] = true;
+    try {
+      chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
+    } catch (err) { /* no-op */ }
+
+    document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
+      const b = c.querySelector(".hz-ai-badge");
+      if (b) b.remove();
+    });
+  }
+
+  function markDomain(hostname, mark, sourceBadge) {
+    prefs.aiUserMarks = prefs.aiUserMarks || {};
+    prefs.aiUserMarks[hostname] = mark;
+    try {
+      chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
+    } catch (err) { /* no-op */ }
+
+    document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
+      const b = c.querySelector(".hz-ai-badge");
+      if (!b) return;
+      const foot = b.querySelector(".hz-panel-foot");
+      if (foot) {
+        foot.textContent = `You marked this as ${mark === 'human' ? 'Human' : 'AI'}`;
         foot.style.color = mark === 'human' ? '#22c55e' : '#ef4444';
-      });
+      }
     });
-    
-    return panel;
   }
 
-  // Process a single result card
+  /* ──────────────────────────────────────────────────────────────────
+     Process one card
+     ────────────────────────────────────────────────────────────────── */
   function processCard(card) {
-    if (card.dataset.hzDone) return;
-    card.dataset.hzDone = "1";
-    
-    const data = extractData(card);
-    if (!data) return;
-    
-    const text = [data.title, data.snippet].filter(Boolean).join(" ");
+    if (!prefs.aiSignal) return;
+    if (card.dataset.hzAIDone === "1") return;
+
+    if (shouldSkipCard(card)) {
+      card.dataset.hzAIDone = "1";
+      return;
+    }
+
+    const sel = SELECTORS[engine];
+    if (!sel) return;
+
+    const data = extractResultData(card, sel);
+    if (!data) {
+      card.dataset.hzAIDone = "1";
+      return;
+    }
+
+    card.dataset.hzHostname = data.hostname;
+    card.dataset.hzAIDone = "1";
+
+    if (prefs.aiDismissed && prefs.aiDismissed[data.hostname]) {
+      return;
+    }
+
+    const text = [data.title, data.snippet].filter(Boolean).join(" — ");
     let score;
     try {
       score = AIScore.score(text, { url: data.url });
     } catch (e) {
+      console.log("[AI Signal] scoring error:", e);
       return;
     }
-    
-    // Create badge and inject AFTER the title (not inside it)
-    const badge = createBadge(score, data.hostname);
-    const panel = createPanel(score, data.hostname);
-    badge.appendChild(panel);
-    
-    // Insert badge after the h3, not inside it
-    const titleEl = card.querySelector("h3");
-    if (titleEl && titleEl.parentElement) {
-      titleEl.parentElement.insertBefore(badge, titleEl.nextSibling);
-    }
-    
-    // Apply hide threshold
+
+    console.log("[AI Signal] scored:", data.hostname, score.overall + "%", bandLabel(bandFor(score.overall)));
+
+    injectBadge(card, score, data.hostname);
+
     if (prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {
       card.classList.add("hz-ai-collapsed");
     }
   }
 
-  // Process all results
-  function processAll() {
-    if (!prefs.aiSignal) return;
-    
-    const cards = findResults();
+  /* ──────────────────────────────────────────────────────────────────
+     Scan / rescan
+     ────────────────────────────────────────────────────────────────── */
+  function rescanAll() {
+    if (!prefs.aiSignal) {
+      document.querySelectorAll(".hz-ai-badge").forEach((b) => b.remove());
+      document.querySelectorAll(".hz-ai-collapsed").forEach((c) => c.classList.remove("hz-ai-collapsed"));
+      return;
+    }
+    const sel = SELECTORS[engine];
+    if (!sel) return;
+
+    let cards = document.querySelectorAll(sel.result);
+
+    if (cards.length === 0 && engine === "google") {
+      const candidates = document.querySelectorAll("#rso > div > div, [data-sokoban-container] > div");
+      cards = Array.from(candidates).filter((el) => el.querySelector("h3") || el.querySelector("a[href^='http']"));
+    }
+
+    console.log("[AI Signal] rescanning", cards.length, "cards on", engine);
     cards.forEach(processCard);
   }
 
-  // Click outside to close expanded badges
+  /* ──────────────────────────────────────────────────────────────────
+     Mutation observer — re-scan when Google inserts new results
+     ────────────────────────────────────────────────────────────────── */
+  let observer = null;
+  function startObserver() {
+    if (observer) return;
+    const root = document.body || document.documentElement;
+    observer = new MutationObserver((mutations) => {
+      if (!prefs.aiSignal) return;
+      const sel = SELECTORS[engine];
+      if (!sel) return;
+      for (const m of mutations) {
+        if (!m.addedNodes || !m.addedNodes.length) continue;
+        for (const n of m.addedNodes) {
+          if (n.nodeType !== 1) continue;
+          if (n.matches && n.matches(sel.result)) {
+            processCard(n);
+            continue;
+          }
+          if (engine === "google" && n.matches && n.matches("#rso > div")) {
+            n.querySelectorAll(sel.result).forEach(processCard);
+            continue;
+          }
+          const inner = n.querySelectorAll ? n.querySelectorAll(sel.result) : [];
+          inner.forEach(processCard);
+        }
+      }
+    });
+    observer.observe(root, { childList: true, subtree: true });
+  }
+
+  /* ──────────────────────────────────────────────────────────────────
+     Click outside to close any expanded panel
+     ────────────────────────────────────────────────────────────────── */
   document.addEventListener("mousedown", (e) => {
     if (!e.target.closest(".hz-ai-badge")) {
-      document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach(b => {
+      document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach((b) => {
         b.classList.remove("hz-expanded");
       });
     }
   });
 
-  // Watch for new results
-  let observer = null;
-  function startObserver() {
-    if (observer) return;
-    
-    observer = new MutationObserver((mutations) => {
-      let shouldRescan = false;
-      
-      for (const m of mutations) {
-        if (m.addedNodes && m.addedNodes.length) {
-          for (const n of m.addedNodes) {
-            if (n.nodeType === 1 && n.querySelector && n.querySelector("h3")) {
-              shouldRescan = true;
-            }
-          }
-        }
-      }
-      
-      if (shouldRescan) {
-        setTimeout(processAll, 200);
-      }
-    });
-    
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  // Initialize
-  function init() {
-    console.log("[AI Signal] init() called, aiSignal:", prefs.aiSignal);
-    processAll();
-    startObserver();
-    setTimeout(processAll, 1000);
-    setTimeout(processAll, 3000);
-  }
-
-  // Start
+  /* ──────────────────────────────────────────────────────────────────
+     Boot
+     ────────────────────────────────────────────────────────────────── */
   loadPrefs();
+  setTimeout(() => { console.log("[AI Signal] first rescan"); rescanAll(); }, 400);
+  setTimeout(() => { console.log("[AI Signal] second rescan"); rescanAll(); }, 1200);
+  startObserver();
+  console.log("[AI Signal] observer started");
 })();
