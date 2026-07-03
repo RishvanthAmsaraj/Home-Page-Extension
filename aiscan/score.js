@@ -168,6 +168,79 @@
     { re: /\bit\s+should\s+be\s+noted\s+that\b/gi, w: 3, name: "it should be noted" },
     { re: /\bworth\s+mentioning\b/gi, w: 3, name: "worth mentioning" },
     { re: /\bimportant\s+to\s+mention\b/gi, w: 3, name: "important to mention" },
+    // NEW: 2025 AI patterns (conversational, clickbait-style)
+    { re: /\b(let's|let us)\s+(explore|dive|delve|examine|unpack|break down)\b/gi, w: 4, name: "let's explore/dive" },
+    { re: /\bhere's\s+(what|why|how|the)\s+(you|we|things|deal|scoop)\b/gi, w: 4, name: "here's what you need" },
+    { re: /\b(spoiler alert|spoiler):?\b/gi, w: 3, name: "spoiler alert" },
+    { re: /\b(long story short|tl;dr|tl dr|tldr):?\b/gi, w: 3, name: "long story short" },
+    { re: /\b(buckle up|grab a coffee|sit tight|hold onto your)\b/gi, w: 4, name: "buckle up / grab coffee" },
+    { re: /\b(fair warning|word of caution|caveat|disclaimer):?\b/gi, w: 3, name: "fair warning" },
+    { re: /\b(the bottom line is|bottom line:|to cut to the chase)\b/gi, w: 4, name: "bottom line is" },
+    { re: /\b(picture this|imagine this|visualize this):?\b/gi, w: 3, name: "picture this" },
+    { re: /\b(fast forward to|flash forward|skip ahead to)\b/gi, w: 3, name: "fast forward" },
+    { re: /\b(plot twist|twist:|and then came|enter the)\b/gi, w: 4, name: "plot twist" },
+    { re: /\b(the kicker|the catch|the rub|the hitch)\b/gi, w: 3, name: "the kicker" },
+    { re: /\b(here's the thing|thing is|thing about it)\b/gi, w: 3, name: "here's the thing" },
+    { re: /\b(mind you|make no mistake|mark my words)\b/gi, w: 3, name: "mind you" },
+    { re: /\b(suffice it to say|suffice to say)\b/gi, w: 4, name: "suffice it to say" },
+    { re: /\b(full disclosure|full transparency|being transparent)\b/gi, w: 3, name: "full disclosure" },
+    { re: /\b(real talk|honestly speaking|truth be told)\b/gi, w: 3, name: "real talk" },
+    { re: /\b(hot take|unpopular opinion|controversial take)\b/gi, w: 3, name: "hot take" },
+    { re: /\b(pro tip|life hack|insider tip|secret weapon)\b/gi, w: 3, name: "pro tip" },
+    { re: /\b(psst|hey|listen up|heads up):?\b/gi, w: 2, name: "psst / hey" },
+    { re: /\b(drumroll|and the winner is|without further ado)\b/gi, w: 3, name: "drumroll" },
+    { re: /\b(mic drop|drops mic|walks away)\b/gi, w: 3, name: "mic drop" },
+    { re: /\b(tell me you're|tell me you)\s+.+\s+without\s+telling\s+me\b/gi, w: 3, name: "tell me without telling me" },
+    { re: /\b(quiet quitting|quiet hiring|career cushioning)\b/gi, w: 3, name: "quiet quitting" },
+    { re: /\b(side hustle|passive income|multiple streams)\b/gi, w: 2, name: "side hustle" },
+    { re: /\b(girl boss|girlboss|she\s+eo|female founder)\b/gi, w: 2, name: "girl boss" },
+    { re: /\b(that\s+being\s+said|having\s+said\s+that|with\s+that\s+said)\b/gi, w: 3, name: "that being said" },
+    { re: /\b(at\s+the\s+end\s+of\s+the\s+day|when\s+all\s+is\s+said\s+and\s+done)\b/gi, w: 4, name: "at the end of the day" },
+    { re: /\b(it\s+is\s+what\s+it\s+is|you\s+do\s+you|live\s+and\s+learn)\b/gi, w: 2, name: "it is what it is" },
+    { re: /\b(periodt|and\s+that's\s+on\s+that|no\s+cap|for\s+real)\b/gi, w: 2, name: "periodt / no cap" },
+    { re: /\b(understand\s+the\s+assignment|read\s+the\s+room|touch\s+grass)\b/gi, w: 2, name: "understand the assignment" },
+    { re: /\b(it\s+hit\s+different|hits\s+different|hits\s+hard)\b/gi, w: 2, name: "hits different" },
+    { re: /\b(rent\s+free|living\s+rent\s+free|in\s+my\s+head)\b/gi, w: 2, name: "rent free" },
+    { re: /\b(say\s+less|less\s+is\s+more|keep\s+it\s+simple)\b/gi, w: 2, name: "say less" },
+    { re: /\b(bless\s+up|stay\s+blessed|positive\s+vibes)\b/gi, w: 2, name: "bless up" },
+    { re: /\b(lowkey|highkey|kinda|sorta)\s+(want|need|think|feel|know)\b/gi, w: 2, name: "lowkey/highkey" },
+    { re: /\b(bestie|best\s+friend|bff|ride\s+or\s+die)\b/gi, w: 1, name: "bestie" },
+    { re: /\b(fam|family|squad|crew|team)\b/gi, w: 1, name: "fam/squad" },
+    { re: /\b(y'all|you\s+guys|everyone|folks|people)\b/gi, w: 1, name: "y'all / folks" },
+    { re: /\b(imo|imho|tbh|ngl|fr|istg|ong)\b/gi, w: 1, name: "imo/tbh/ngl" },
+    { re: /\b(gonna|wanna|gotta|dunno|lemme)\b/gi, w: 1, name: "gonna/wanna" },
+    { re: /\b(kind of|sort of|type of|sorta|kinda)\s+(like|weird|strange|interesting)\b/gi, w: 1, name: "kind of like" },
+    { re: /\b(i\s+mean|you\s+know|like|basically|literally|honestly)\b/gi, w: 1, name: "i mean / you know" },
+    { re: /\b(just|simply|basically|essentially|fundamentally)\s+(put|say|state|putting|saying)\b/gi, w: 2, name: "just put/say" },
+    { re: /\b(in\s+a\s+nutshell|to\s+put\s+it\s+simply|in\s+simple\s+terms)\b/gi, w: 3, name: "in a nutshell" },
+    { re: /\b(if\s+you\s+will|so\s+to\s+speak|if\s+i\s+may)\b/gi, w: 2, name: "if you will" },
+    { re: /\b(for\s+lack\s+of\s+a\s+better\s+word|for\s+want\s+of\s+a\s+better\s+term)\b/gi, w: 2, name: "for lack of a better word" },
+    { re: /\b(to\s+make\s+a\s+long\s+story\s+short|long\s+story\s+short)\b/gi, w: 3, name: "long story short" },
+    { re: /\b(i\s+won't\s+lie|not\s+gonna\s+lie|won't\s+lie)\b/gi, w: 2, name: "i won't lie" },
+    { re: /\b(believe\s+it\s+or\s+not|crazy\s+enough|wouldn't\s+you\s+know)\b/gi, w: 2, name: "believe it or not" },
+    { re: /\b(go\s+figure|imagine\s+that|who\s+would\s+have\s+thought)\b/gi, w: 2, name: "go figure" },
+    { re: /\b(you\s+had\s+one\s+job|not\s+my\s+problem|not\s+my\s+monkey)\b/gi, w: 2, name: "you had one job" },
+    { re: /\b(it\s+is\s+what\s+it\s+is|que\s+sera\s+sera|c'est\s+la\s+vie)\b/gi, w: 2, name: "it is what it is" },
+    { re: /\b(well\s+well\s+well|look\s+what\s+we\s+have\s+here|fancy\s+seeing\s+you)\b/gi, w: 2, name: "well well well" },
+    { re: /\b(how\s+do\s+i\s+put\s+this|where\s+do\s+i\s+even\s+begin|how\s+to\s+say\s+this)\b/gi, w: 2, name: "how do i put this" },
+    { re: /\b(if\s+i'm\s+being\s+honest|if\s+i'm\s+being\s+real|real\s+talk)\b/gi, w: 2, name: "if i'm being honest" },
+    { re: /\b(can\s+we\s+just|can\s+we\s+talk\s+about|let's\s+talk\s+about)\b/gi, w: 2, name: "can we just" },
+    { re: /\b(and\s+just\s+like\s+that|just\s+like\s+that|and\s+then\s+it\s+hit\s+me)\b/gi, w: 2, name: "and just like that" },
+    { re: /\b(next\s+thing\s+i\s+know|before\s+i\s+knew\s+it|out\s+of\s+nowhere)\b/gi, w: 2, name: "next thing i know" },
+    { re: /\b(fast\s+forward|flashback|cut\s+to)\b/gi, w: 2, name: "fast forward" },
+    { re: /\b(rinse\s+and\s+repeat|wash\s+rinse\s+repeat|lather\s+rinse\s+repeat)\b/gi, w: 2, name: "rinse and repeat" },
+    { re: /\b(rinse, repeat|repeat\s+as\s+necessary|repeat\s+as\s+needed)\b/gi, w: 2, name: "rinse, repeat" },
+    { re: /\b(you\s+get\s+the\s+idea|you\s+get\s+the\s+picture|you\s+get\s+my\s+drift)\b/gi, w: 2, name: "you get the idea" },
+    { re: /\b(i\s+think\s+you\s+get\s+the|i\s+think\s+you\s+see\s+where)\b/gi, w: 2, name: "i think you get" },
+    { re: /\b(i\s+could\s+go\s+on|i\s+could\s+keep\s+going|but\s+i'll\s+stop)\b/gi, w: 2, name: "i could go on" },
+    { re: /\b(but\s+i\s+digress|where\s+was\s+i|anyway)\b/gi, w: 2, name: "but i digress" },
+    { re: /\b(moving\s+on|anyhoo|anywho|in\s+any\s+case)\b/gi, w: 2, name: "moving on" },
+    { re: /\b(so\s+yeah|so\s+anyway|so\s+there's\s+that)\b/gi, w: 2, name: "so yeah" },
+    { re: /\b(and\s+there\s+you\s+have\s+it|there\s+you\s+go|there\s+it\s+is)\b/gi, w: 3, name: "and there you have it" },
+    { re: /\b(the\s+end|fin|that's\s+all\s+folks|that's\s+a\s+wrap)\b/gi, w: 3, name: "the end" },
+    { re: /\b(mission\s+accomplished|job\s+done|task\s+complete)\b/gi, w: 2, name: "mission accomplished" },
+    { re: /\b(drops\s+mic|mic\s+drop|walks\s+away|exits\s+stage)\b/gi, w: 3, name: "drops mic" },
+    { re: /\b(bows|curtains|fade\s+to\s+black|the\s+end)\b/gi, w: 2, name: "bows / curtains" },
   ];
 
   /* ──────────────────────────────────────────────────────────────────
@@ -206,6 +279,67 @@
       // cv < 0.25 = very uniform (AI-like), > 0.45 = varied (human-like)
       if (cv < 0.25) { raw += 8; hits.push(`uniform sentences (cv=${cv.toFixed(2)})`); }
       else if (cv < 0.35) { raw += 4; hits.push(`fairly uniform sentences (cv=${cv.toFixed(2)})`); }
+    }
+
+    // NEW: Repetitive phrase structure (AI often repeats patterns)
+    // Check for repeated starting words in consecutive sentences
+    if (sentences.length >= 4) {
+      let repeatedStarts = 0;
+      for (let i = 1; i < sentences.length; i++) {
+        const prevStart = sentences[i-1].trim().split(/\s+/)[0]?.toLowerCase();
+        const currStart = sentences[i].trim().split(/\s+/)[0]?.toLowerCase();
+        if (prevStart && currStart && prevStart === currStart && prevStart.length > 2) {
+          repeatedStarts++;
+        }
+      }
+      if (repeatedStarts >= 2) {
+        raw += repeatedStarts * 3;
+        hits.push(`${repeatedStarts} repeated sentence starts`);
+      }
+    }
+
+    // NEW: Transition word density (AI overuses transitions)
+    const transitions = [
+      "furthermore", "moreover", "additionally", "consequently", "therefore",
+      "however", "nevertheless", "nonetheless", "meanwhile", "subsequently",
+      "conversely", "alternatively", "similarly", "likewise", "in contrast",
+      "for example", "for instance", "specifically", "particularly", "notably",
+      "in fact", "indeed", "obviously", "clearly", "certainly",
+      "firstly", "secondly", "thirdly", "finally", "lastly",
+      "in addition", "as a result", "in conclusion", "to summarize", "overall"
+    ];
+    let transitionCount = 0;
+    transitions.forEach(t => {
+      const regex = new RegExp(`\\b${t}\\b`, 'gi');
+      const matches = lower.match(regex);
+      if (matches) transitionCount += matches.length;
+    });
+    const transitionDensity = words > 0 ? transitionCount / words : 0;
+    if (transitionDensity > 0.08) {
+      raw += 6;
+      hits.push(`high transition density (${transitionCount})`);
+    } else if (transitionDensity > 0.05) {
+      raw += 3;
+      hits.push(`elevated transitions (${transitionCount})`);
+    }
+
+    // NEW: Generic adjective density
+    const genericAdjectives = [
+      "good", "bad", "great", "important", "significant", "substantial",
+      "notable", "remarkable", "considerable", "impressive", "effective",
+      "efficient", "successful", "valuable", "beneficial", "advantageous",
+      "positive", "negative", "major", "minor", "key", "crucial", "vital"
+    ];
+    let genericAdjCount = 0;
+    genericAdjectives.forEach(adj => {
+      const regex = new RegExp(`\\b${adj}\\b`, 'gi');
+      const matches = lower.match(regex);
+      if (matches) genericAdjCount += matches.length;
+    });
+    const adjDensity = words > 0 ? genericAdjCount / words : 0;
+    if (adjDensity > 0.06) {
+      raw += 4;
+      hits.push(`generic adjectives (${genericAdjCount})`);
     }
 
     // Em-dash density: only flag when clearly above human baseline.

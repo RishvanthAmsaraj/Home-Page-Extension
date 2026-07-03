@@ -125,7 +125,8 @@
   transition: opacity 0.2s ease 0.15s, transform 0.2s ease 0.15s;
 }
 
-.hz-ai-panel.hz-visible {
+/* Show panel when badge is expanded */
+.hz-ai-badge.hz-expanded .hz-ai-panel {
   display: block;
   opacity: 1;
   transform: translateY(0);
