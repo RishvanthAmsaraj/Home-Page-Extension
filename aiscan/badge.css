@@ -95,13 +95,14 @@
   display: block;
 }
 
-/* ── 3. Expanded panel (replaces tooltip, appears below badge) ─ */
+/* ── 3. Expanded panel (appears below badge) ─ */
 
 .hz-ai-panel {
   display: none;
   position: absolute;
   left: 0;
-  top: calc(100% + 4px);
+  top: 100%;
+  margin-top: 4px;
   z-index: 2147483647;
   background: rgba(15, 15, 15, 0.95);
   color: #f0f0f0;

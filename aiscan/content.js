@@ -13,7 +13,7 @@
       // Each result is a direct child of #rso or nested in data-sokoban-container
       // We target the INNER result divs, not the container
       // EXCLUDE: "What people are saying" / trending discussions (g-blk, g-section-with-header)
-      result: "#rso > div > div.g:not(.g-blk):not([data-hveid='']):not([data-sokoban-container] .g-blk), #rso .g:not(.g-blk), div[data-sokoban-container] .g:not(.g-blk), #search .g:not(.g-blk), [data-snf] .g:not(.g-blk), div.g[data-hveid]:not(.g-blk), div[jscontroller][data-hveid]:not(.g-blk)",
+      result: "#rso > div > div.g:not(.g-blk), #rso > div.g:not(.g-blk), #rso .g:not(.g-blk), div[data-sokoban-container] .g:not(.g-blk), #search .g:not(.g-blk), [data-snf] .g:not(.g-blk), div.g[data-hveid]:not(.g-blk), div[jscontroller][data-hveid]:not(.g-blk)",
       anchor: "a[href]:not([role='button'])",
       title: "h3",
       snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230, span[data-st], div[data-sncf] > div > span, div.VwiC3b",
@@ -258,17 +258,32 @@
   // Cache for external trust checks
   const trustCache = {};
   
-  async function checkExternalTrust(hostname) {
+  // Google Safe Browsing API check
+  // Uses background script to make cross-origin API calls
+  async function checkSafeBrowsing(hostname) {
     // Return cached result if available
     if (trustCache[hostname] !== undefined) {
       return trustCache[hostname];
     }
     
-    // For now, return null (no external check)
-    // In the future, this could call VirusTotal, WOT, etc.
-    // But we need to respect rate limits and user privacy
-    trustCache[hostname] = null;
-    return null;
+    try {
+      // Send message to background script
+      const response = await chrome.runtime.sendMessage({
+        action: "checkSafeBrowsing",
+        hostname: hostname
+      });
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      
+      trustCache[hostname] = response.result;
+      return response.result;
+    } catch (err) {
+      console.log("[AI Signal] Safe Browsing check failed:", err);
+      trustCache[hostname] = null;
+      return null;
+    }
   }
 
   function injectPanel(card, score, hostname) {
@@ -317,21 +332,33 @@
       markDomain(hostname, "ai");
     });
     
-    // Add trust check handler
-    panel.querySelector(".hz-check-trust")?.addEventListener("click", (e) => {
+    // Add trust check handler — uses Google Safe Browsing API
+    panel.querySelector(".hz-check-trust")?.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const btn = e.target;
+      const resultSpan = panel.querySelector(".hz-trust-result");
+      
       btn.textContent = "Checking...";
       btn.disabled = true;
       
-      // Simulate external check (replace with real API call in future)
-      setTimeout(() => {
-        const result = panel.querySelector(".hz-trust-result");
-        result.innerHTML = `<em>External trust APIs require API keys.<br>Coming soon: VirusTotal, WOT integration.</em>`;
-        btn.textContent = "🔍 Check Trust Score";
-        btn.disabled = false;
-      }, 500);
+      try {
+        const safeBrowsingResult = await checkSafeBrowsing(hostname);
+        
+        if (safeBrowsingResult === null) {
+          resultSpan.innerHTML = `<em>Google Safe Browsing: Service unavailable<br>Get a free API key to enable checks</em>`;
+        } else if (safeBrowsingResult.threats && safeBrowsingResult.threats.length > 0) {
+          const threatTypes = safeBrowsingResult.threats.map(t => t.threatType).join(", ");
+          resultSpan.innerHTML = `<span style="color:#ef4444">⚠️ UNSAFE: ${threatTypes}</span>`;
+        } else {
+          resultSpan.innerHTML = `<span style="color:#22c55e">✓ Safe — No threats detected by Google Safe Browsing</span>`;
+        }
+      } catch (err) {
+        resultSpan.innerHTML = `<em>Error checking safety: ${err.message}</em>`;
+      }
+      
+      btn.textContent = "🔍 Check Trust Score";
+      btn.disabled = false;
     });
     
     card.appendChild(panel);

@@ -1,17 +1,21 @@
 {
   "manifest_version": 3,
   "name": "Horizon Tab",
-  "version": "1.7.2",
+  "version": "1.8.0",
   "description": "A minimal, beautiful, customizable new tab page — your horizon, your way.",
   "chrome_url_overrides": {
     "newtab": "tab.html"
   },
-  "permissions": ["storage"],
+  "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "*://*.google.com/search*",
     "*://duckduckgo.com/*",
-    "*://search.brave.com/search*"
+    "*://search.brave.com/search*",
+    "*://safebrowsing.googleapis.com/*"
   ],
+  "background": {
+    "service_worker": "aiscan/background.js"
+  },
   "content_scripts": [
     {
       "matches": [
