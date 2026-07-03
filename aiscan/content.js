@@ -197,12 +197,24 @@
     return false;
   }
 
-  /* ──────────────────────────────────────────────────────────────────
-     Badge — compact pill with embedded panel (v2.0.x UX)
-     ────────────────────────────────────────────────────────────────── */
+  /* ───────────────────────────────────────────────────────────────────────
+     Badge — compact pill with embedded panel (v2.0.9 UX)
+     Insert OUTSIDE Google’s flipped title-row span.
+
+     Google wraps each title’s anchor in <span class="V9tjod">
+     which carries `transform: scaleY(-1)`. Anything injected
+     inside that span renders flipped. We climb one more level
+     and place the badge between the title row and the URL /
+     snippet, in un-flipped territory, away from the kebab (⋮)
+     menu which either lives inside that flipped span or adjacent
+     to it. The badge itself uses `transform: scaleY(-1)` in
+     badge.css as belt-and-suspenders for any other flipped
+     ancestor higher up the tree.
+     ─────────────────────────────────────────────────────────────────────── */
   function injectBadge(card, score, hostname) {
-    const old = card.querySelector(".hz-ai-badge");
-    if (old) old.remove();
+    // Wipe any prior badge anywhere in the card so re-scans never
+    // produce duplicates (mutation observer fires for many events).
+    card.querySelectorAll(".hz-ai-badge").forEach((b) => b.remove());
 
     const band = bandFor(score.overall);
     const badge = document.createElement("span");
@@ -228,25 +240,41 @@
       </div>
     `;
 
-    // Insert OUTSIDE the anchor that wraps the title (so the badge
-    // never triggers link navigation, even if our event handler misses).
-    // Walk up from h3 past any <a> ancestor, then insert the badge as
-    // a sibling AFTER the link. If no link wraps the title, insert
-    // after the h3 inside whatever container it lives in.
+    // Walk past the flipped title span.
+    //   • Do NOT insert inside the title’s <a> (would trigger
+    //     navigation if our click handler ever missed).
+    //   • Do NOT insert inside SPAN.V9tjod — it carries
+    //     `transform: scaleY(-1)` from Google and the badge
+    //     would render upside down there.
+    // Insert as the next sibling of SPAN.V9tjod, inside its
+    // (un-flipped) grandparent — i.e. between the title row
+    // and the URL/snippet. Clean, upright, kebab-free.
     const titleEl = card.querySelector("h3");
-    const wrappingAnchor = titleEl ? titleEl.closest("a") : null;
-
-    if (wrappingAnchor && wrappingAnchor.parentElement) {
-      // Insert badge as a sibling AFTER the link itself.
-      wrappingAnchor.parentElement.insertBefore(badge, wrappingAnchor.nextSibling);
-    } else if (titleEl && titleEl.parentElement) {
-      // No link wraps the title — just put it after the h3.
-      titleEl.parentElement.insertBefore(badge, titleEl.nextSibling);
-    } else {
-      card.insertBefore(badge, card.firstChild);
+    let parent = null;
+    let after = null;
+    if (titleEl) {
+      const wrappingAnchor = titleEl.closest("a");
+      if (wrappingAnchor && wrappingAnchor.parentElement) {
+        const flippedSpan = wrappingAnchor.parentElement; // V9tjod
+        if (flippedSpan.parentElement) {
+          parent = flippedSpan.parentElement; // un-flipped row
+          after  = flippedSpan;
+        } else {
+          parent = flippedSpan;
+          after  = wrappingAnchor;
+        }
+      } else if (titleEl.parentElement) {
+        parent = titleEl.parentElement;
+        after  = titleEl;
+      }
     }
+    if (!parent) {
+      parent = card;
+      after  = null;
+    }
+    parent.insertBefore(badge, (after && after.nextSibling) || null);
 
-    // Click badge to expand panel.
+// Click badge to expand panel.
     // Use pointerdown in CAPTURE phase so we beat any Google mousedown/
     // click handlers attached higher up the tree (Google Analytics,
     // instant-navigation, etc. all listen on document/window).

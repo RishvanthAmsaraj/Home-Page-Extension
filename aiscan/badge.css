@@ -1,76 +1,122 @@
 /* ════════════════════════════════════════════════════════════════════
    Horizon AI Signal — Badge & Panel Styles
+   v2.0.9 — Un-flipped rendering + clean positioning.
+
+   Hard-won lessons:
+   1. Google wraps each title's anchor in <span class="V9tjod">
+      carrying `transform: scaleY(-1)` (CDP-confirmed). content.js
+      inserts the badge AS A SIBLING AFTER that span (in its
+      grandparent), so the badge lives in un-flipped territory
+      and needs NO counter-mirror. Earlier counter-transforms
+      on the badge made things worse — they flipped an
+      un-flipped element.
+   2. The 3-dot (⋮) kebab sits inside the same flipped span (in
+      current Google DOM) — placing the badge as a sibling of
+      the anchor lands between title and kebab and covers it.
+      Walking past the flipped span puts the badge between the
+      title row and the URL/snippet, away from the kebab.
+   3. Badge uses `display: flex` + `width: max-content` so it
+      always claims its own block line below the title, instead
+      of flowing inline next to the kebab.
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. Badge (compact pill) ─────────────────────────────── */
 
 .hz-ai-badge {
-  display: inline-flex;
+  /* Block-level flex so the pill always lands on its own line below
+     the title row instead of flowing inline next to the kebab (\u22ee).
+     `width: max-content` keeps the pill sized to its content. */
+  display: flex;
+  align-self: flex-start;
+  width: max-content;
+  max-width: 100%;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
-  padding: 4px 10px;
+  padding: 5px 10px 5px 9px;
   border-radius: 100px;
-  margin: 0 0 0 8px;
+  margin: 6px 0 4px 0;          /* own line, slight gap above */
   cursor: pointer;
   position: relative;
-  vertical-align: baseline;
   user-select: none;
   -webkit-user-select: none;
-  /* Defensive: Google SERP CSS can flip text orientation or apply
-     writing-mode on parent <a>s. Force horizontal left-to-right. */
-  writing-mode: horizontal-tb;
-  direction: ltr;
-  text-orientation: mixed;
 
-  transition: max-width 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-              max-height 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-              padding 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-              border-radius 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-              background 0.25s ease,
-              transform 0.2s cubic-bezier(0.32, 0.72, 0.24, 1);
+  /* Defensive against inherited Google SERP styles that flip text
+     orientation in some languages. Apply in BOTH states with
+     !important so we can't be overridden. */
+  writing-mode: horizontal-tb !important;
+  direction: ltr !important;
+  text-orientation: mixed !important;
+  unicode-bidi: isolate;
+
+  /* The badge is now injected OUTSIDE Google's flipped title-row
+     span (see content.js injectBadge), so it lives in un-flipped
+     territory and needs NO counter-mirror on its own. The compact
+     and expanded states are visually upright by default. We still
+     keep `writing-mode` / `direction` defenses in case a higher-up
+     ancestor (e.g. some Google SERP i18n variants) applies them. */
+  transform: none;
+  transform-origin: center center;
+  will-change: transform;
+  isolation: isolate;
+
+  transition:
+    max-width 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    max-height 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    padding   0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    border-radius 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    background 0.25s ease;
   overflow: hidden;
-  max-width: 70px;
-  max-height: 22px;
+  max-width: 72px;
+  max-height: 24px;
   z-index: 1;
 }
 
-/* Color bands */
-.hz-ai-badge[data-band="low"]  { 
-  background: rgba(34, 197, 94, 0.12); 
-  color: #16a34a; 
-}
-.hz-ai-badge[data-band="med"]  { 
-  background: rgba(245, 158, 11, 0.12); 
-  color: #d97706; 
-}
-.hz-ai-badge[data-band="high"] { 
-  background: rgba(239, 68, 68, 0.12); 
-  color: #dc2626; 
-}
-
+/* Hover/active: clean scale only \u2014 no mirror needed. */
 .hz-ai-badge:hover {
-  transform: scale(1.05);
+  transform: scale(1.06);
+}
+.hz-ai-badge:active {
+  transform: scale(0.96);
 }
 
-.hz-ai-badge:active {
-  transform: scale(0.95);
+/* Color bands */
+.hz-ai-badge[data-band="low"]  {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+.hz-ai-badge[data-band="med"]  {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+.hz-ai-badge[data-band="high"] {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
 }
 
 /* Dot */
 .hz-ai-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
+  /* Inherit color so it picks up the band's hue. */
+  background: currentColor;
+  opacity: 0.95;
 }
 
 .hz-ai-badge[data-band="low"]  .hz-ai-dot { background: #22c55e; }
 .hz-ai-badge[data-band="med"]  .hz-ai-dot { background: #f59e0b; }
 .hz-ai-badge[data-band="high"] .hz-ai-dot { background: #ef4444; }
+
+/* Percent label */
+.hz-ai-pct {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
 
 /* Dismiss button */
 .hz-ai-dismiss {
@@ -84,45 +130,66 @@
   border: none;
   background: transparent;
   color: inherit;
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: pointer;
   font-size: 10px;
   border-radius: 50%;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease;
 }
-
 .hz-ai-dismiss:hover {
   opacity: 1;
-  background: rgba(0,0,0,0.08);
+  background: rgba(0, 0, 0, 0.08);
+}
+.hz-ai-dismiss:active {
+  background: rgba(0, 0, 0, 0.14);
 }
 
 /* ── 2. Expanded badge ──────────────────────────────────── */
 
 .hz-ai-badge.hz-expanded {
-  max-width: 280px;
-  max-height: 400px;
-  padding: 14px;
+  max-width: 320px;
+  max-height: 520px;
+  padding: 14px 14px 12px 14px;
   border-radius: 14px;
-  background: rgba(28, 28, 30, 0.95) !important;
+  background: rgba(28, 28, 30, 0.96) !important;
   color: #f5f5f7 !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   z-index: 2147483647;
-  /* When expanded, override any inherited text-orientation / writing-mode
-     from Google SERP <a> wrappers, and stop the badge from being
-     squeezed into the link's text-flow. */
+  align-items: flex-start !important;
+  text-align: left;
+
+  /* Keep the un-flip in expanded state too — the panel content
+     would also be otherwise upside down. */
   writing-mode: horizontal-tb !important;
   direction: ltr !important;
   text-orientation: mixed !important;
-  align-items: flex-start !important;
-  text-align: left;
+
+  /* No mirror needed now — the badge lives in un-flipped territory. */
+  transform: none;
+  transform-origin: center center;
+}
+
+/* Dismiss button: no counter-mirror needed now that badge is in
+   un-flipped territory. */
+.hz-ai-badge.hz-expanded .hz-ai-dismiss {
+  transform: none;
+  align-self: flex-end;
+  margin-left: auto;
+  margin-right: -4px;
+  margin-top: -6px;
+  color: rgba(255, 255, 255, 0.6);
+  opacity: 0.7;
+}
+.hz-ai-badge.hz-expanded .hz-ai-dismiss:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
 }
 
 /* Hide compact elements when expanded */
 .hz-ai-badge.hz-expanded .hz-ai-dot,
-.hz-ai-badge.hz-expanded .hz-ai-pct,
-.hz-ai-badge.hz-expanded .hz-ai-dismiss {
+.hz-ai-badge.hz-expanded .hz-ai-pct {
   display: none;
 }
 
@@ -131,7 +198,7 @@
 .hz-ai-panel {
   display: none;
   width: 100%;
-  animation: hzPanelIn 0.25s ease 0.05s both;
+  animation: hzPanelIn 0.25s cubic-bezier(0.32, 0.72, 0.24, 1) 0.04s both;
 }
 
 .hz-ai-badge.hz-expanded .hz-ai-panel {
@@ -141,7 +208,7 @@
 @keyframes hzPanelIn {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
@@ -164,9 +231,10 @@
 }
 
 .hz-panel-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .hz-panel-dot[data-band="low"]  { background: #22c55e; }
@@ -177,8 +245,9 @@
 .hz-panel-reasons {
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(255,255,255,0.7);
+  color: rgba(255, 255, 255, 0.72);
   margin-bottom: 12px;
+  word-wrap: break-word;
 }
 
 /* Actions */
@@ -197,24 +266,23 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
 .hz-btn-human {
   background: rgba(34, 197, 94, 0.2);
   color: #4ade80;
 }
-
 .hz-btn-human:hover {
-  background: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.32);
 }
 
 .hz-btn-ai {
   background: rgba(239, 68, 68, 0.2);
   color: #f87171;
 }
-
 .hz-btn-ai:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.32);
 }
 
 .hz-btn:active {
@@ -224,10 +292,10 @@
 /* Footer */
 .hz-panel-foot {
   font-size: 11px;
-  color: rgba(255,255,255,0.4);
+  color: rgba(255, 255, 255, 0.4);
   text-align: center;
   padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ── 4. Collapsed result ────────────────────────────────── */
@@ -243,48 +311,276 @@
   filter: none;
 }
 
-/* ── 5. In-page detector ────────────────────────────────── */
+/* ── 5. In-page detector (compact pill) ──────────────────── */
 
 .hz-page-detector {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 24px;
+  right: 24px;
   z-index: 2147483647;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #f5f5f7;
+  user-select: none;
+  -webkit-user-select: none;
+  max-width: 320px;
 }
 
 .hz-page-detector-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 9px 14px;
   border-radius: 100px;
   background: rgba(28, 28, 30, 0.92);
   color: #f5f5f7;
   cursor: pointer;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
-  transition: all 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    max-width 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    max-height 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    padding   0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    border-radius 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+    box-shadow 0.25s ease;
+  overflow: hidden;
+  max-width: 200px;
+  max-height: 32px;
 }
 
 .hz-page-detector-badge:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
 }
 
-/* Dark mode support */
+.hz-detector-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hz-detector-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-detector-label {
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}
+
+/* ── 6. In-page detector expanded — grow the badge inline ── */
+
+.hz-page-detector.hz-expanded .hz-page-detector-badge {
+  max-width: 320px;
+  max-height: 600px;
+  padding: 14px;
+  border-radius: 14px;
+  align-items: flex-start;
+  text-align: left;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
+
+.hz-detector-panel {
+  display: none;
+  width: 100%;
+  animation: hzPanelIn 0.25s cubic-bezier(0.32, 0.72, 0.24, 1) 0.04s both;
+}
+
+.hz-page-detector.hz-expanded .hz-detector-panel {
+  display: block;
+}
+
+/* Compact header row — hide dot/score/label when expanded */
+.hz-page-detector.hz-expanded .hz-detector-header-row {
+  display: none;
+}
+
+/* Panel content (was the absolute-positioned panel in v2.0.8, now inline) */
+.hz-detector-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hz-detector-panel-header strong {
+  flex: 1;
+}
+
+.hz-detector-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.hz-detector-bar-fill {
+  height: 100%;
+  border-radius: 100px;
+  transition: width 0.4s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.hz-detector-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hz-detector-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hz-detector-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-detector-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.5;
+}
+
+.hz-detector-section-breakdown-title {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hz-detector-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.hz-detector-sections::-webkit-scrollbar {
+  width: 6px;
+}
+.hz-detector-sections::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hz-detector-sections::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 100px;
+}
+
+.hz-detector-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.hz-detector-section-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
+}
+
+.hz-detector-section-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.hz-detector-foot {
+  font-size: 10px;
+  opacity: 0.4;
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  line-height: 1.4;
+}
+
+/* Close button visible only when expanded */
+.hz-detector-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+.hz-detector-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  opacity: 1;
+}
+
+.hz-page-detector.hz-expanded .hz-detector-close {
+  display: inline-flex;
+}
+
+/* ── 7. Dark mode for SERP pill (band colors) ──────────── */
+
 @media (prefers-color-scheme: dark) {
-  .hz-ai-badge[data-band="low"]  { 
-    background: rgba(34, 197, 94, 0.15); 
-    color: #4ade80; 
+  .hz-ai-badge[data-band="low"]  {
+    background: rgba(34, 197, 94, 0.16);
+    color: #4ade80;
   }
-  .hz-ai-badge[data-band="med"]  { 
-    background: rgba(245, 158, 11, 0.15); 
-    color: #fbbf24; 
+  .hz-ai-badge[data-band="med"]  {
+    background: rgba(245, 158, 11, 0.16);
+    color: #fbbf24;
   }
-  .hz-ai-badge[data-band="high"] { 
-    background: rgba(239, 68, 68, 0.15); 
-    color: #f87171; 
+  .hz-ai-badge[data-band="high"] {
+    background: rgba(239, 68, 68, 0.16);
+    color: #f87171;
+  }
+}
+
+/* ── 8. Small viewport tweak ───────────────────────────── */
+
+@media (max-width: 480px) {
+  .hz-page-detector {
+    bottom: 16px;
+    right: 16px;
+    max-width: calc(100vw - 32px);
+  }
+  .hz-page-detector-badge,
+  .hz-page-detector.hz-expanded .hz-page-detector-badge {
+    max-width: 100%;
   }
 }

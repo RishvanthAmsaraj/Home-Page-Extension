@@ -206,79 +206,103 @@
     // Remove existing panel
     if (detectorPanel) {
       detectorPanel.remove();
+      detectorPanel = null;
     }
-    
+
     const band = data.overall < 35 ? "low" : data.overall < 65 ? "med" : "high";
     const bandColor = band === "low" ? "#22c55e" : band === "med" ? "#f59e0b" : "#ef4444";
-    const bandLabel = band === "low" ? "Human-like" : band === "med" ? "Mixed" : "Likely AI";
-    
+    const bandLabel = data.overall < 35 ? "Human-like" : data.overall < 65 ? "Mixed" : "Likely AI";
+    const statColor = (v, threshold) => v < threshold ? "#22c55e" : v < threshold * 2 ? "#f59e0b" : "#ef4444";
+
     detectorPanel = document.createElement("div");
     detectorPanel.className = "hz-page-detector";
+    // v2.0.9: panel content now lives INSIDE the badge div so the
+    // pill expands inline (matching the SERP pill UX), instead of
+    // a separate absolutely-positioned panel opening above.
     detectorPanel.innerHTML = `
       <div class="hz-page-detector-badge">
-        <span class="hz-detector-dot" style="background:${bandColor}"></span>
-        <span class="hz-detector-score">${data.overall}%</span>
-        <span class="hz-detector-label">${bandLabel}</span>
-      </div>
-      <div class="hz-page-detector-panel">
-        <div class="hz-detector-header">
-          <span class="hz-detector-dot" style="background:${bandColor};width:10px;height:10px"></span>
-          <strong>AI Signal: ${data.overall}% · ${bandLabel}</strong>
+        <div class="hz-detector-header-row">
+          <span class="hz-detector-dot" style="background:${bandColor}"></span>
+          <span class="hz-detector-score">${data.overall}%</span>
+          <span class="hz-detector-label">${bandLabel}</span>
         </div>
-        <div class="hz-detector-bar">
-          <div class="hz-detector-bar-fill" style="width:${data.overall}%;background:${bandColor}"></div>
-        </div>
-        <div class="hz-detector-stats">
-          <div class="hz-detector-stat">
-            <span class="hz-detector-stat-value" style="color:${data.heuristic < 35 ? '#22c55e' : data.heuristic < 65 ? '#f59e0b' : '#ef4444'}">${data.heuristic}%</span>
-            <span class="hz-detector-stat-label">Pattern Match</span>
+        <button class="hz-detector-close" type="button" aria-label="Close">✕</button>
+        <div class="hz-detector-panel">
+          <div class="hz-detector-panel-header">
+            <span class="hz-detector-dot" style="background:${bandColor};width:10px;height:10px"></span>
+            <strong>AI Signal: ${data.overall}% · ${bandLabel}</strong>
           </div>
-          <div class="hz-detector-stat">
-            <span class="hz-detector-stat-value" style="color:${data.perplexity > 50 ? '#22c55e' : '#f59e0b'}">${data.perplexity}</span>
-            <span class="hz-detector-stat-label">Perplexity</span>
+          <div class="hz-detector-bar">
+            <div class="hz-detector-bar-fill" style="width:${data.overall}%;background:${bandColor}"></div>
           </div>
-          <div class="hz-detector-stat">
-            <span class="hz-detector-stat-value" style="color:${data.burstiness > 50 ? '#22c55e' : '#f59e0b'}">${data.burstiness}</span>
-            <span class="hz-detector-stat-label">Burstiness</span>
-          </div>
-          <div class="hz-detector-stat">
-            <span class="hz-detector-stat-value">${data.wordCount}</span>
-            <span class="hz-detector-stat-label">Words</span>
-          </div>
-        </div>
-        ${data.sections.length > 0 ? `
-        <div class="hz-detector-section-breakdown-title">Section breakdown</div>
-        <div class="hz-detector-sections">
-          ${data.sections.map(s => `
-            <div class="hz-detector-section">
-              <span class="hz-detector-section-score" style="color:${s.score < 35 ? '#22c55e' : s.score < 65 ? '#f59e0b' : '#ef4444'}">${s.score}%</span>
-              <span class="hz-detector-section-preview">${escapeHtml(s.preview)}</span>
+          <div class="hz-detector-stats">
+            <div class="hz-detector-stat">
+              <span class="hz-detector-stat-value" style="color:${data.heuristic < 35 ? "#22c55e" : data.heuristic < 65 ? "#f59e0b" : "#ef4444"}">${data.heuristic}%</span>
+              <span class="hz-detector-stat-label">Pattern Match</span>
             </div>
-          `).join("")}
-        </div>
-        ` : ''}
-        <div class="hz-detector-foot">
-          Heuristic estimate — not definitive. Perplexity &amp; burstiness are statistical approximations.
+            <div class="hz-detector-stat">
+              <span class="hz-detector-stat-value" style="color:${data.perplexity > 50 ? "#22c55e" : "#f59e0b"}">${data.perplexity}</span>
+              <span class="hz-detector-stat-label">Perplexity</span>
+            </div>
+            <div class="hz-detector-stat">
+              <span class="hz-detector-stat-value" style="color:${data.burstiness > 50 ? "#22c55e" : "#f59e0b"}">${data.burstiness}</span>
+              <span class="hz-detector-stat-label">Burstiness</span>
+            </div>
+            <div class="hz-detector-stat">
+              <span class="hz-detector-stat-value">${data.wordCount}</span>
+              <span class="hz-detector-stat-label">Words</span>
+            </div>
+          </div>
+          ${data.sections.length > 0 ? `
+          <div class="hz-detector-section-breakdown-title">Section breakdown</div>
+          <div class="hz-detector-sections">
+            ${data.sections.map(s => `
+              <div class="hz-detector-section">
+                <span class="hz-detector-section-score" style="color:${s.score < 35 ? "#22c55e" : s.score < 65 ? "#f59e0b" : "#ef4444"}">${s.score}%</span>
+                <span class="hz-detector-section-preview">${escapeHtml(s.preview)}</span>
+              </div>
+            `).join("")}
+          </div>
+          ` : ""}
+          <div class="hz-detector-foot">
+            Heuristic estimate — not definitive. Perplexity &amp; burstiness are statistical approximations.
+          </div>
         </div>
       </div>
     `;
 
-    // Toggle on badge click — pointerdown capture so we beat page handlers
+    // Toggle on badge click — pointerdown capture so we beat page handlers.
+    // The whole badge area is the trigger now (panel lives inside it).
     const badge = detectorPanel.querySelector(".hz-page-detector-badge");
     badge.addEventListener("pointerdown", (e) => {
+      // If the click was on the close button or inside the panel
+      // content, let the inner click handlers do their thing; we
+      // still want to STOP link navigation in either state.
+      if (e.target.closest(".hz-detector-close")) return;
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
       detectorPanel.classList.toggle("hz-expanded");
     }, true);
 
-    // Close when clicking outside — capture phase, fire on every page click
+    // Close button — same capture-phase treatment.
+    const closeBtn = detectorPanel.querySelector(".hz-detector-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        detectorPanel.classList.remove("hz-expanded");
+      }, true);
+    }
+
+    // Close when clicking outside — capture phase, fire on every page click.
     document.addEventListener("pointerdown", (e) => {
-      if (!detectorPanel.contains(e.target)) {
+      if (detectorPanel && !detectorPanel.contains(e.target)) {
         detectorPanel.classList.remove("hz-expanded");
       }
     }, true);
-    
+
     document.body.appendChild(detectorPanel);
     console.log("[AI Detector] Panel shown:", data.overall + "%", bandLabel);
   }
