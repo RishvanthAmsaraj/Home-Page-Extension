@@ -11,16 +11,27 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 11px;
   font-weight: 600;
-  padding: 3px 10px;
+  line-height: 1;
+  padding: 4px 10px;
   border-radius: 100px;
-  margin-left: 8px;
+  margin: 0 0 0 8px;
   cursor: pointer;
   position: relative;
-  vertical-align: middle;
+  vertical-align: baseline;
   user-select: none;
   -webkit-user-select: none;
-  
-  transition: all 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
+  /* Defensive: Google SERP CSS can flip text orientation or apply
+     writing-mode on parent <a>s. Force horizontal left-to-right. */
+  writing-mode: horizontal-tb;
+  direction: ltr;
+  text-orientation: mixed;
+
+  transition: max-width 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+              max-height 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+              padding 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+              border-radius 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
+              background 0.25s ease,
+              transform 0.2s cubic-bezier(0.32, 0.72, 0.24, 1);
   overflow: hidden;
   max-width: 70px;
   max-height: 22px;
@@ -88,7 +99,7 @@
 /* ── 2. Expanded badge ──────────────────────────────────── */
 
 .hz-ai-badge.hz-expanded {
-  max-width: 260px;
+  max-width: 280px;
   max-height: 400px;
   padding: 14px;
   border-radius: 14px;
@@ -96,7 +107,16 @@
   color: #f5f5f7 !important;
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   z-index: 2147483647;
+  /* When expanded, override any inherited text-orientation / writing-mode
+     from Google SERP <a> wrappers, and stop the badge from being
+     squeezed into the link's text-flow. */
+  writing-mode: horizontal-tb !important;
+  direction: ltr !important;
+  text-orientation: mixed !important;
+  align-items: flex-start !important;
+  text-align: left;
 }
 
 /* Hide compact elements when expanded */

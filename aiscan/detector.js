@@ -247,35 +247,37 @@
           </div>
         </div>
         ${data.sections.length > 0 ? `
-        <div style="font-size:11px;opacity:0.7;margin-bottom:8px">Section breakdown:</div>
+        <div class="hz-detector-section-breakdown-title">Section breakdown</div>
         <div class="hz-detector-sections">
           ${data.sections.map(s => `
             <div class="hz-detector-section">
               <span class="hz-detector-section-score" style="color:${s.score < 35 ? '#22c55e' : s.score < 65 ? '#f59e0b' : '#ef4444'}">${s.score}%</span>
-              ${escapeHtml(s.preview)}
+              <span class="hz-detector-section-preview">${escapeHtml(s.preview)}</span>
             </div>
           `).join("")}
         </div>
         ` : ''}
         <div class="hz-detector-foot">
-          Heuristic estimate — not definitive. Perplexity & burstiness are statistical approximations.
+          Heuristic estimate — not definitive. Perplexity &amp; burstiness are statistical approximations.
         </div>
       </div>
     `;
-    
-    // Toggle on badge click
+
+    // Toggle on badge click — pointerdown capture so we beat page handlers
     const badge = detectorPanel.querySelector(".hz-page-detector-badge");
-    badge.addEventListener("click", (e) => {
+    badge.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       detectorPanel.classList.toggle("hz-expanded");
-    });
-    
-    // Close when clicking outside
-    document.addEventListener("click", (e) => {
+    }, true);
+
+    // Close when clicking outside — capture phase, fire on every page click
+    document.addEventListener("pointerdown", (e) => {
       if (!detectorPanel.contains(e.target)) {
         detectorPanel.classList.remove("hz-expanded");
       }
-    });
+    }, true);
     
     document.body.appendChild(detectorPanel);
     console.log("[AI Detector] Panel shown:", data.overall + "%", bandLabel);

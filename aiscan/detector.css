@@ -1,0 +1,243 @@
+/* ════════════════════════════════════════════════════════════════════
+   Horizon AI Signal — In-Page Detector Styles
+   Floating badge + collapsible panel for non-SERP pages
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Root container ───────────────────────────────────────── */
+
+.hz-page-detector {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #f5f5f7;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Compact badge (always visible) ───────────────────────── */
+
+.hz-page-detector-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 100px;
+  background: rgba(28, 28, 30, 0.92);
+  color: #f5f5f7;
+  cursor: pointer;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    transform 0.3s cubic-bezier(0.32, 0.72, 0.24, 1),
+    box-shadow 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.hz-page-detector-badge:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+}
+
+.hz-page-detector-badge:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.hz-detector-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.hz-detector-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-detector-label {
+  font-size: 11px;
+  opacity: 0.7;
+  letter-spacing: 0.02em;
+}
+
+/* ── Expanded panel ───────────────────────────────────────── */
+
+.hz-page-detector-panel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(28, 28, 30, 0.96);
+  color: #f5f5f7;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  /* Hidden by default — toggle via .hz-page-detector.hz-expanded */
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 0.25s cubic-bezier(0.32, 0.72, 0.24, 1),
+    transform 0.25s cubic-bezier(0.32, 0.72, 0.24, 1),
+    visibility 0s linear 0.25s;
+}
+
+.hz-page-detector.hz-expanded .hz-page-detector-panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  visibility: visible;
+  transition:
+    opacity 0.25s cubic-bezier(0.32, 0.72, 0.24, 1),
+    transform 0.25s cubic-bezier(0.32, 0.72, 0.24, 1),
+    visibility 0s linear 0s;
+}
+
+/* iOS-style scrollbar */
+.hz-page-detector-panel::-webkit-scrollbar {
+  width: 6px;
+}
+.hz-page-detector-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hz-page-detector-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 100px;
+}
+
+/* ── Panel content ────────────────────────────────────────── */
+
+.hz-detector-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hz-detector-header strong {
+  flex: 1;
+}
+
+.hz-detector-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.hz-detector-bar-fill {
+  height: 100%;
+  border-radius: 100px;
+  transition: width 0.4s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+/* 4-stat grid: pattern, perplexity, burstiness, words */
+.hz-detector-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.hz-detector-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hz-detector-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hz-detector-stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.5;
+}
+
+.hz-detector-section-breakdown-title {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hz-detector-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.hz-detector-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.hz-detector-section-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
+}
+
+.hz-detector-section-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.hz-detector-foot {
+  font-size: 10px;
+  opacity: 0.4;
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  line-height: 1.4;
+}
+
+/* ── Small viewport tweak ─────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .hz-page-detector {
+    bottom: 16px;
+    right: 16px;
+  }
+  .hz-page-detector-panel {
+    width: calc(100vw - 32px);
+    max-width: 320px;
+  }
+}

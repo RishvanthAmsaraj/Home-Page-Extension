@@ -35,7 +35,7 @@
         "*://search.brave.com/search*"
       ],
       "js": ["aiscan/score.js", "aiscan/detector.js"],
-      "css": ["aiscan/badge.css"],
+      "css": ["aiscan/badge.css", "aiscan/detector.css"],
       "run_at": "document_idle"
     }
   ],

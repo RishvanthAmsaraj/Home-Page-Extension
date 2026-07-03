@@ -228,46 +228,63 @@
       </div>
     `;
 
-    // Insert AFTER the title h3 (not inside it, so clicks on the badge don't navigate)
+    // Insert OUTSIDE the anchor that wraps the title (so the badge
+    // never triggers link navigation, even if our event handler misses).
+    // Walk up from h3 past any <a> ancestor, then insert the badge as
+    // a sibling AFTER the link. If no link wraps the title, insert
+    // after the h3 inside whatever container it lives in.
     const titleEl = card.querySelector("h3");
-    if (titleEl && titleEl.parentElement) {
+    const wrappingAnchor = titleEl ? titleEl.closest("a") : null;
+
+    if (wrappingAnchor && wrappingAnchor.parentElement) {
+      // Insert badge as a sibling AFTER the link itself.
+      wrappingAnchor.parentElement.insertBefore(badge, wrappingAnchor.nextSibling);
+    } else if (titleEl && titleEl.parentElement) {
+      // No link wraps the title — just put it after the h3.
       titleEl.parentElement.insertBefore(badge, titleEl.nextSibling);
     } else {
       card.insertBefore(badge, card.firstChild);
     }
 
-    // Click badge to expand panel — mousedown so we beat the link's click handler
-    badge.addEventListener("mousedown", (e) => {
+    // Click badge to expand panel.
+    // Use pointerdown in CAPTURE phase so we beat any Google mousedown/
+    // click handlers attached higher up the tree (Google Analytics,
+    // instant-navigation, etc. all listen on document/window).
+    badge.addEventListener("pointerdown", (e) => {
       if (e.target.closest(".hz-ai-dismiss")) return;
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
 
       // Close any other expanded badge first
       document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach((b) => {
         if (b !== badge) b.classList.remove("hz-expanded");
       });
       badge.classList.toggle("hz-expanded");
-    });
+    }, true);
 
-    // Dismiss button
+    // Dismiss button — same capture-phase treatment
     const dismissBtn = badge.querySelector(".hz-ai-dismiss");
-    dismissBtn.addEventListener("mousedown", (e) => {
+    dismissBtn.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       dismissForDomain(hostname);
-    });
+    }, true);
 
     // Mark-as-human / Mark-as-AI buttons inside the panel
-    badge.querySelector(".hz-btn-human").addEventListener("click", (e) => {
+    badge.querySelector(".hz-btn-human").addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       markDomain(hostname, "human", badge);
-    });
-    badge.querySelector(".hz-btn-ai").addEventListener("click", (e) => {
+    }, true);
+    badge.querySelector(".hz-btn-ai").addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
+      e.stopImmediatePropagation();
       markDomain(hostname, "ai", badge);
-    });
+    }, true);
   }
 
   function dismissForDomain(hostname) {
@@ -404,13 +421,13 @@
   /* ──────────────────────────────────────────────────────────────────
      Click outside to close any expanded panel
      ────────────────────────────────────────────────────────────────── */
-  document.addEventListener("mousedown", (e) => {
+  document.addEventListener("pointerdown", (e) => {
     if (!e.target.closest(".hz-ai-badge")) {
       document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach((b) => {
         b.classList.remove("hz-expanded");
       });
     }
-  });
+  }, true);
 
   /* ──────────────────────────────────────────────────────────────────
      Boot
