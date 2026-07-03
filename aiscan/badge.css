@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════════════════
-   Horizon AI Signal — Badge Styles
+   Horizon AI Signal — Badge & Panel Styles
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── 1. Result card styling ───────────────────────────────── */
@@ -27,7 +27,9 @@
   user-select: none;
   -webkit-user-select: none;
   position: relative;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
+  overflow: hidden;
+  max-height: 20px;
 }
 
 /* Light-theme badge backgrounds */
@@ -35,15 +37,21 @@
 .hz-ai-badge[data-band="med"]  { background: #fef3c7; color: #92400e; }
 .hz-ai-badge[data-band="high"] { background: #fee2e2; color: #991b1b; }
 
-/* Expanded state — grows to show more info */
+/* Expanded state — grows to show panel inside */
 .hz-ai-badge.hz-expanded {
   padding: 8px 12px;
   border-radius: 12px;
   z-index: 2147483647;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-  max-width: 280px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  max-width: 260px;
+  min-width: 180px;
   white-space: normal;
   flex-wrap: wrap;
+  max-height: 400px;
+  background: rgba(15, 15, 15, 0.95) !important;
+  color: #f0f0f0 !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 /* Dot indicator */
@@ -52,6 +60,7 @@
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
+  transition: transform 0.3s ease;
 }
 .hz-ai-badge[data-band="low"]  .hz-ai-dot { background: #22c55e; }
 .hz-ai-badge[data-band="med"]  .hz-ai-dot { background: #f59e0b; }
@@ -86,41 +95,40 @@
   width: 100%;
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid rgba(0,0,0,0.1);
+  border-top: 1px solid rgba(255,255,255,0.1);
   font-size: 12px;
   line-height: 1.5;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease 0.1s, transform 0.2s ease 0.1s;
 }
 
 .hz-ai-badge.hz-expanded .hz-expanded-content {
   display: block;
+  opacity: 1;
+  transform: translateY(0);
 }
 
-/* ── 3. Expanded panel (appears below badge) ─ */
+/* ── 3. Expanded panel (inside badge) ─ */
 
 .hz-ai-panel {
   display: none;
-  position: absolute;
-  left: 0;
-  top: 100%;
-  margin-top: 4px;
-  z-index: 2147483647;
-  background: rgba(15, 15, 15, 0.95);
-  color: #f0f0f0;
-  padding: 12px 16px;
-  border-radius: 12px;
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.1);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 12px;
   line-height: 1.6;
-  width: 280px;
-  max-width: calc(100vw - 40px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease 0.15s, transform 0.2s ease 0.15s;
 }
 
 .hz-ai-panel.hz-visible {
   display: block;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* Panel header */
@@ -236,6 +244,167 @@
 .hz-ai-collapsed:hover {
   opacity: 1;
   filter: none;
+}
+
+/* ── 5. In-page detector floating panel ───────────────────── */
+
+.hz-page-detector {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.hz-page-detector-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(15, 15, 15, 0.9);
+  color: #f0f0f0;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+.hz-page-detector-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+}
+
+.hz-page-detector-badge .hz-detector-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hz-page-detector-badge .hz-detector-score {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.hz-page-detector-badge .hz-detector-label {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+/* Expanded detector panel */
+.hz-page-detector-panel {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 48px);
+  background: rgba(15, 15, 15, 0.95);
+  color: #f0f0f0;
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.1);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.hz-page-detector.hz-expanded .hz-page-detector-panel {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hz-page-detector.hz-expanded .hz-page-detector-badge {
+  border-radius: 12px;
+}
+
+/* Detector panel content */
+.hz-detector-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hz-detector-header strong {
+  font-size: 15px;
+}
+
+.hz-detector-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.hz-detector-stat {
+  background: rgba(255,255,255,0.05);
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.hz-detector-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  display: block;
+}
+
+.hz-detector-stat-label {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-top: 2px;
+}
+
+.hz-detector-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.hz-detector-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.hz-detector-sections {
+  margin: 12px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.hz-detector-section {
+  padding: 8px;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.03);
+  font-size: 12px;
+}
+
+.hz-detector-section-score {
+  float: right;
+  font-weight: 600;
+}
+
+.hz-detector-foot {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  font-size: 11px;
+  opacity: 0.5;
 }
 
 /* ── Dark-mode override for Google (dark theme) ────────────── */

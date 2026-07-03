@@ -158,24 +158,19 @@
     return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
   }
 
-  // Track currently open panel for click-outside-to-close
-  let activePanel = null;
+  // Track currently open badge for click-outside-to-close
   let activeBadge = null;
 
   function closeAllPanels() {
-    document.querySelectorAll(".hz-ai-panel.hz-visible").forEach(p => {
-      p.classList.remove("hz-visible");
-    });
     document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach(b => {
       b.classList.remove("hz-expanded");
     });
-    activePanel = null;
     activeBadge = null;
   }
 
   // Click outside to close
   document.addEventListener("click", (e) => {
-    if (activePanel && !e.target.closest(".hz-ai-badge") && !e.target.closest(".hz-ai-panel")) {
+    if (activeBadge && !e.target.closest(".hz-ai-badge")) {
       closeAllPanels();
     }
   });
@@ -191,7 +186,7 @@
     badge.dataset.band = band;
     badge.dataset.hostname = hostname;
     
-    // Simple format: just AI% with color dot
+    // Compact view
     badge.innerHTML = `
       <span class="hz-ai-dot" aria-hidden="true"></span>
       <span class="hz-ai-pct">${score.overall}%</span>
@@ -207,7 +202,7 @@
       card.insertBefore(badge, card.firstChild);
     }
 
-    // Click handler to toggle panel
+    // Click handler to toggle expanded view
     badge.addEventListener("click", (e) => {
       // Don't toggle if clicking dismiss button
       if (e.target.closest(".hz-ai-dismiss")) return;
@@ -215,19 +210,14 @@
       e.preventDefault();
       e.stopPropagation();
       
-      const panel = card.querySelector(".hz-ai-panel");
-      if (panel) {
-        const isVisible = panel.classList.contains("hz-visible");
-        
-        // Close all other panels first
-        closeAllPanels();
-        
-        if (!isVisible) {
-          panel.classList.add("hz-visible");
-          badge.classList.add("hz-expanded");
-          activePanel = panel;
-          activeBadge = badge;
-        }
+      const isExpanded = badge.classList.contains("hz-expanded");
+      
+      // Close all other badges first
+      closeAllPanels();
+      
+      if (!isExpanded) {
+        badge.classList.add("hz-expanded");
+        activeBadge = badge;
       }
     });
 
@@ -237,8 +227,6 @@
       e.stopPropagation();
       badge.remove();
       card.classList.remove("hz-ai-border", "hz-ai-low", "hz-ai-med", "hz-ai-high");
-      const panel = card.querySelector(".hz-ai-panel");
-      if (panel) panel.remove();
       prefs.aiDismissed = prefs.aiDismissed || {};
       prefs.aiDismissed[hostname] = true;
       try {
@@ -249,10 +237,10 @@
           const b = c.querySelector(".hz-ai-badge");
           if (b) b.remove();
           c.classList.remove("hz-ai-border", "hz-ai-low", "hz-ai-med", "hz-ai-high");
-          const t = c.querySelector(".hz-ai-tooltip");
-          if (t) t.remove();
         });
     });
+    
+    return badge;
   }
 
   // Cache for external trust checks
@@ -286,8 +274,9 @@
     }
   }
 
-  function injectPanel(card, score, hostname) {
-    const old = card.querySelector(".hz-ai-panel");
+  function injectPanel(badge, score, hostname) {
+    // Remove old panel if any
+    const old = badge.querySelector(".hz-ai-panel");
     if (old) old.remove();
 
     const band = bandFor(score.overall);
@@ -361,7 +350,7 @@
       btn.disabled = false;
     });
     
-    card.appendChild(panel);
+    badge.appendChild(panel);
   }
 
   function markDomain(hostname, mark) {
@@ -373,18 +362,21 @@
     
     // Update all panels for this domain
     document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
-      const panel = c.querySelector(".hz-ai-panel");
-      if (panel) {
-        const markDiv = panel.querySelector(".hz-user-mark");
-        if (markDiv) {
-          markDiv.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
-        } else {
-          const reasonsDiv = panel.querySelector(".hz-reasons");
-          if (reasonsDiv) {
-            const newMark = document.createElement("div");
-            newMark.className = "hz-user-mark";
-            newMark.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
-            reasonsDiv.after(newMark);
+      const badge = c.querySelector(".hz-ai-badge");
+      if (badge) {
+        const panel = badge.querySelector(".hz-ai-panel");
+        if (panel) {
+          const markDiv = panel.querySelector(".hz-user-mark");
+          if (markDiv) {
+            markDiv.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
+          } else {
+            const reasonsDiv = panel.querySelector(".hz-reasons");
+            if (reasonsDiv) {
+              const newMark = document.createElement("div");
+              newMark.className = "hz-user-mark";
+              newMark.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
+              reasonsDiv.after(newMark);
+            }
           }
         }
       }
@@ -456,8 +448,8 @@
     // Visual treatments
     const band = bandFor(score.overall);
     card.classList.add("hz-ai-border", "hz-ai-" + band);
-    injectBadge(card, score, data.hostname);
-    injectPanel(card, score, data.hostname);
+    const badge = injectBadge(card, score, data.hostname);
+    injectPanel(badge, score, data.hostname);
 
     // Hide-above threshold
     if (prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {
