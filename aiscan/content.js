@@ -83,12 +83,14 @@
     
     if (isGoogle) {
       // Try multiple selectors for Google
+      // Google's DOM changes frequently - use broad selectors
       const selectors = [
         "#rso .g",
-        "#rso > div > div.g",
-        "#rso > div.g",
-        "[data-sokoban-container] .g",
-        "#search .g"
+        "#rso > div",
+        "#rso > div > div",
+        "#search .g",
+        "[data-sokoban-container]",
+        "div[data-ved]"
       ];
       
       for (const sel of selectors) {
@@ -98,14 +100,19 @@
           if (seen.has(card)) return;
           seen.add(card);
           
-          // Skip if already processed or is a container
+          // Skip if already processed
           if (card.dataset.hzDone) return;
-          if (card.closest(".g-blk")) return;
+          
+          // Skip containers (elements that contain other results)
+          if (card.querySelector(".g, [data-sokoban-container]")) return;
           
           // Must have a link and title
           const link = card.querySelector("a[href^='http']");
           const title = card.querySelector("h3");
           if (!link || !title) return;
+          
+          // Must have some text content
+          if (card.textContent.length < 50) return;
           
           results.push(card);
         });
@@ -297,15 +304,18 @@
       for (const m of mutations) {
         if (m.addedNodes && m.addedNodes.length) {
           for (const n of m.addedNodes) {
-            if (n.nodeType === 1 && n.matches && (n.matches(".g") || n.querySelector(".g"))) {
-              shouldRescan = true;
+            if (n.nodeType === 1) {
+              // Check if it's a result or contains results
+              if (n.matches && (n.matches("#rso > div") || n.querySelector("h3"))) {
+                shouldRescan = true;
+              }
             }
           }
         }
       }
       
       if (shouldRescan) {
-        setTimeout(processAll, 100);
+        setTimeout(processAll, 200);
       }
     });
     
