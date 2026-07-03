@@ -82,37 +82,41 @@
     const seen = new Set();
     
     if (isGoogle) {
-      // Try multiple selectors for Google
-      // Google's DOM changes frequently - use broad selectors
-      const selectors = [
-        "#rso .g",
-        "#rso > div",
-        "#rso > div > div",
-        "#search .g",
-        "[data-sokoban-container]",
-        "div[data-ved]"
-      ];
+      // Modern Google uses various structures - try multiple approaches
+      // Approach 1: Look for h3 elements (titles) and get their parent containers
+      const titles = document.querySelectorAll("#search h3, #rso h3");
+      titles.forEach(title => {
+        // Find the nearest parent that looks like a result
+        let card = title.closest("div[data-sokoban-container]") || 
+                   title.closest(".g") ||
+                   title.closest("[data-ved]") ||
+                   title.parentElement;
+        
+        if (!card || seen.has(card)) return;
+        seen.add(card);
+        
+        // Skip if already processed
+        if (card.dataset.hzDone) return;
+        
+        // Must have a link
+        const link = card.querySelector("a[href^='http']");
+        if (!link) return;
+        
+        results.push(card);
+      });
       
-      for (const sel of selectors) {
-        const cards = document.querySelectorAll(sel);
-        cards.forEach(card => {
-          // Skip duplicates
-          if (seen.has(card)) return;
+      // Approach 2: Direct link approach - find all result links
+      if (results.length === 0) {
+        const links = document.querySelectorAll("#search a[href^='http'], #rso a[href^='http']");
+        links.forEach(link => {
+          const card = link.closest("div") || link.parentElement;
+          if (!card || seen.has(card)) return;
           seen.add(card);
           
-          // Skip if already processed
           if (card.dataset.hzDone) return;
           
-          // Skip containers (elements that contain other results)
-          if (card.querySelector(".g, [data-sokoban-container]")) return;
-          
-          // Must have a link and title
-          const link = card.querySelector("a[href^='http']");
           const title = card.querySelector("h3");
-          if (!link || !title) return;
-          
-          // Must have some text content
-          if (card.textContent.length < 50) return;
+          if (!title) return;
           
           results.push(card);
         });
