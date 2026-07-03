@@ -97,12 +97,36 @@ const DL=[
   {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
 ];
 
+/* ── Schema versioning.
+   Bump SCHEMA_VERSION when the shape of state changes (new fields,
+   renamed fields, removed fields). On load, if the saved blob is
+   missing the version stamp (or has an older one), we run a
+   migration function that knows how to bring it forward. Old
+   fields are stripped; missing fields get defaults from DS. */
+const SCHEMA_VERSION = 1;
+
 const DS={
   theme:"slate",searchEngine:"google",aiProvider:"perplexity",
   links:DL,showLinks:true,glassOpacity:0.04,searchType:"all",
   customBg:"#0d0d0d",customAccent:"#7a8a9a",customLight:false,aiFreeOn:false,
   aiSignal:false,aiSensitivity:"med",aiHideAbove:0
 };
+
+/* Migrate a raw saved blob to the current schema. Returns a clean
+   state object. Each version step handles its own deltas — never
+   edit an old step, always ADD a new one. */
+function migrateState(raw){
+  let v = raw && typeof raw._v === "number" ? raw._v : 0;
+  if (v < 1) v = 1;
+  const clean = {};
+  for (const k of Object.keys(DS)) {
+    clean[k] = raw && Object.prototype.hasOwnProperty.call(raw, k)
+      ? raw[k]
+      : DS[k];
+  }
+  clean._v = SCHEMA_VERSION;
+  return clean;
+}
 let state={...DS},linkId=100;
 
 /* ── Storage ── */
@@ -111,15 +135,18 @@ const SYS="hz",BG_KEY="***";
 async function loadState(){
   try{
     const s=await chrome.storage.sync.get([SYS]);
-    if(s[SYS])state={...DS,...s[SYS],links:s[SYS].links||DL};
-  }catch{try{const s=localStorage.getItem(SYS);if(s)state={...DS,...JSON.parse(s),links:JSON.parse(s).links||DL}}catch{}}
+    if(s[SYS])state=migrateState(s[SYS]);
+  }catch{try{const s=localStorage.getItem(SYS);if(s)state=migrateState(JSON.parse(s))}catch{}}
   try{
     const b=await chrome.storage.local.get([BG_KEY]);
     if(b[BG_KEY])state.bg=b[BG_KEY];
   }catch{try{const b=localStorage.getItem(BG_KEY);if(b)state.bg=b}catch{}}
 }
 function saveState(){
-  const o={theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
+  /* _v is a schema stamp; we write it as the very first key so
+     load-time sees it immediately. loadState handles migration
+     if _v is missing or older. */
+  const o={_v:SCHEMA_VERSION,theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
     links:state.links,showLinks:state.showLinks,glassOpacity:state.glassOpacity,searchType:state.searchType,
     customBg:state.customBg,customAccent:state.customAccent,customLight:state.customLight,aiFreeOn:state.aiFreeOn,
     aiSignal:state.aiSignal,aiSensitivity:state.aiSensitivity,aiHideAbove:state.aiHideAbove};
@@ -255,7 +282,14 @@ function openDrawer(){
 function closeDrawer(){
   const sec=document.getElementById("searchSection");
   sec.classList.remove("open");
+  sec.setAttribute("aria-expanded","false");
   sec.style.marginBottom=""; // restore resting margin (1rem from CSS)
+  // Restore focus to the element that had it before we opened,
+  // if that element is still in the DOM and focusable.
+  if (_drawerReturnFocus && document.contains(_drawerReturnFocus)) {
+    try { _drawerReturnFocus.focus({ preventScroll: true }); } catch (_) {}
+  }
+  _drawerReturnFocus = null;
 }
 function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
 
@@ -349,6 +383,136 @@ function submitSearch(q){
   let url=state.aiFreeOn?aiFreeURL(base,query,state.searchEngine):base+encodeURIComponent(query);
   window.location.href=url;
 }
+/* ── Recent-searches dropdown ──
+   Stored in chrome.storage.local (separate from prefs.sync so the
+   quota isn't an issue). Max 12 entries, dedupe by query string,
+   newest first. The dropdown shows when the input is focused AND
+   empty AND we have entries. Up/Down arrow keys move within the
+   list; Enter submits the highlighted one; Escape just closes. */
+const HISTORY_KEY = "hzHistory";
+const HISTORY_MAX = 12;
+let searchHistory = []; // [{ q, t }]
+
+async function loadSearchHistory(){
+  try {
+    const r = await chrome.storage.local.get([HISTORY_KEY]);
+    searchHistory = Array.isArray(r[HISTORY_KEY]) ? r[HISTORY_KEY] : [];
+  } catch {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      searchHistory = raw ? JSON.parse(raw) : [];
+    } catch { searchHistory = []; }
+  }
+}
+async function saveSearchHistory(){
+  const trimmed = searchHistory.slice(0, HISTORY_MAX);
+  try { await chrome.storage.local.set({ [HISTORY_KEY]: trimmed }); }
+  catch {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed)); } catch {}
+  }
+}
+async function recordSearch(q){
+  q = (q || '').trim();
+  if (!q) return;
+  // Dedupe case-insensitively; bump the existing entry to the top.
+  searchHistory = [
+    { q, t: Date.now() },
+    ...searchHistory.filter(e => e.q.toLowerCase() !== q.toLowerCase()),
+  ].slice(0, HISTORY_MAX);
+  await saveSearchHistory();
+}
+async function deleteSearchEntry(q){
+  searchHistory = searchHistory.filter(e => e.q !== q);
+  await saveSearchHistory();
+  renderSearchHistory();
+}
+async function clearSearchHistory(){
+  searchHistory = [];
+  await saveSearchHistory();
+  renderSearchHistory();
+}
+
+/* Render the dropdown. Called whenever the visible state might
+   have changed (focus, input, after mutation). */
+function renderSearchHistory(){
+  const list = document.getElementById('searchHistoryList');
+  if (!list) return;
+  list.innerHTML = searchHistory.map(e => `
+    <li class="search-history-item" data-q="${escapeAttr(e.q)}" tabindex="0">
+      <span class="search-history-q">${escapeHtml(e.q)}</span>
+      <button type="button" class="search-history-x" aria-label="Remove">×</button>
+    </li>
+  `).join('');
+
+  // Bind clicks + remove buttons
+  list.querySelectorAll('.search-history-item').forEach(li => {
+    li.addEventListener('click', (ev) => {
+      // If the user clicked the small × button, remove the entry
+      // and don't submit.
+      if (ev.target.closest('.search-history-x')) {
+        ev.stopPropagation();
+        deleteSearchEntry(li.dataset.q);
+        return;
+      }
+      const inp = document.getElementById('searchInput');
+      inp.value = li.dataset.q;
+      closeSearchHistory();
+      submitSearch(inp.value);
+    });
+  });
+}
+
+/* Show / hide the dropdown. We use the .open class so the CSS
+   max-height + opacity transition kicks in (the [hidden] attribute
+   alone has no transition). */
+function openSearchHistory(){
+  const el = document.getElementById('searchHistory');
+  if (!el || !searchHistory.length) return;
+  el.hidden = false;
+  // Force a reflow so the transition runs (display change first).
+  // eslint-disable-next-line no-unused-expressions
+  el.offsetHeight;
+  el.classList.add('open');
+}
+function closeSearchHistory(){
+  const el = document.getElementById('searchHistory');
+  if (!el) return;
+  el.classList.remove('open');
+  // After the transition, set [hidden] so it's not in tab order.
+  setTimeout(() => { el.hidden = true; }, 350);
+}
+
+/* Up/Down arrow nav within the open dropdown. We track the active
+   descendant via a class. */
+function moveHistoryActive(delta){
+  const list = document.getElementById('searchHistoryList');
+  if (!list) return;
+  const items = Array.from(list.querySelectorAll('.search-history-item'));
+  if (!items.length) return;
+  let i = items.findIndex(el => el.classList.contains('active'));
+  if (i < 0) i = delta > 0 ? -1 : items.length;
+  i = (i + delta + items.length) % items.length;
+  items.forEach(el => el.classList.remove('active'));
+  items[i].classList.add('active');
+  items[i].scrollIntoView({ block: 'nearest' });
+  items[i].focus();
+}
+function activeHistoryQ(){
+  const list = document.getElementById('searchHistoryList');
+  if (!list) return null;
+  const active = list.querySelector('.search-history-item.active');
+  return active ? active.dataset.q : null;
+}
+
+/* ── small HTML-escape helpers used in renderSearchHistory above */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+function escapeAttr(s){ return escapeHtml(s); }
+
+
 
 /* ══════════════════════════════════════════════════
    SETTINGS
@@ -511,9 +675,69 @@ document.getElementById("bgUpload").addEventListener("change",e=>{
   };r.readAsDataURL(f);e.target.value="";
 });
 
+/* ── Global keyboard shortcuts
+   "/"                  focus the search bar (when no input is focused)
+   Cmd/Ctrl + K         same as "/"
+   Escape               cascade close: AI methodology modal ->
+                        settings panel -> drawer. Each level
+                        captures Escape and stops it bubbling.
+   Cmd/Ctrl + ,         open settings  (chrome standard shortcut)
+   Up/Down/Left/Right   navigate the drawer grid (see below) */
+let _drawerReturnFocus = null;
+
+function isTypingTarget(el){
+  if (!el) return false;
+  const t = el.tagName;
+  return t === "INPUT" || t === "TEXTAREA" || el.isContentEditable;
+}
+
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
-  if(e.key==="Escape"&&isDrawerOpen())closeDrawer();
+  // Escape always wins — cascade close
+  if (e.key === "Escape") {
+    const aiModal = document.getElementById("aiMethodologyModal");
+    if (aiModal && aiModal.classList.contains("open")) {
+      aiModal.classList.remove("open");
+      e.preventDefault(); e.stopPropagation();
+      return;
+    }
+    const sp = document.getElementById("settingsPanel");
+    if (sp && sp.classList.contains("open")) {
+      closeSettings();
+      e.preventDefault(); e.stopPropagation();
+      return;
+    }
+    if (isDrawerOpen()) {
+      closeDrawer();
+      e.preventDefault(); e.stopPropagation();
+      return;
+    }
+  }
+
+  // "/" focuses search — only when not already in an input
+  if (e.key === "/" && !isTypingTarget(e.target)) {
+    const inp = document.getElementById("searchInput");
+    if (inp) {
+      e.preventDefault();
+      inp.focus();
+      inp.select();
+    }
+  }
+
+  // Cmd/Ctrl+K focuses search (sublime-style)
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    const inp = document.getElementById("searchInput");
+    if (inp) {
+      e.preventDefault();
+      inp.focus();
+      inp.select();
+    }
+  }
+
+  // Cmd/Ctrl+, opens settings
+  if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+    e.preventDefault();
+    openSettings();
+  }
 });
 
 /* ══════════════════════════════════════════════════
@@ -554,7 +778,59 @@ document.addEventListener("keydown",e=>{
   });
 
   // Form submit
-  document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(input.value.trim())});
+  document.getElementById("searchForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    const v = input.value.trim();
+    if (v) { recordSearch(v); closeSearchHistory(); }
+    submitSearch(v);
+  });
+
+  /* v3.1 — Recent-searches wiring.
+     Show dropdown on focus when input is empty. Hide when the user
+     starts typing, submits, or blurs (unless focus moves INTO the
+     dropdown itself). Arrow keys navigate; Enter selects. */
+  await loadSearchHistory();
+  renderSearchHistory();
+  input.addEventListener("focus", () => {
+    if (!input.value.length) openSearchHistory();
+  });
+  input.addEventListener("blur", () => {
+    // Delay so click on a history item can fire first.
+    setTimeout(() => {
+      const hist = document.getElementById('searchHistory');
+      if (!hist) return;
+      if (!hist.contains(document.activeElement)) closeSearchHistory();
+    }, 120);
+  });
+  input.addEventListener("input", () => {
+    if (input.value.length) closeSearchHistory();
+    else openSearchHistory();
+  });
+  document.getElementById("searchHistoryClear")?.addEventListener("click", clearSearchHistory);
+
+  /* Arrow keys: when the input has focus and history is open,
+     Up/Down move the active descendant, Enter submits it.
+     We intercept BEFORE the drawer-grid handler so the input
+     context wins. */
+  input.addEventListener("keydown", (e) => {
+    if (!document.getElementById('searchHistory')?.classList.contains('open')) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveHistoryActive(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveHistoryActive(-1); }
+    else if (e.key === 'Enter') {
+      const q = activeHistoryQ();
+      if (q) {
+        e.preventDefault();
+        input.value = q;
+        recordSearch(q);
+        closeSearchHistory();
+        submitSearch(q);
+      }
+    } else if (e.key === 'Escape') {
+      // First Escape closes the dropdown only, leaves drawer open.
+      closeSearchHistory();
+      e.stopPropagation();
+    }
+  });
 
   renderDrawer();refreshUI();
 
@@ -562,4 +838,44 @@ document.addEventListener("keydown",e=>{
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
   document.getElementById("settingsClose").addEventListener("click",closeSettings);
   document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
+})();
+
+/* ── Arrow-key navigation in the drawer engine/AI grid.
+   When the drawer is open and a drawer-btn has focus, arrow keys
+   move focus to neighbours. Left/Right move within the current
+   row; Up/Down move by column count. Home/End jump to ends.
+   Disabled when the drawer is closed or focus is elsewhere. */
+(function setupDrawerArrowNav(){
+  function colCount(grid){
+    const cs = grid && getComputedStyle(grid);
+    if (!cs) return 1;
+    const m = cs.gridTemplateColumns && cs.gridTemplateColumns.match(/repeat\((\d+)/);
+    if (m) return parseInt(m[1], 10) || 1;
+    if (grid.classList.contains('ai-grid')) return 4;
+    const w = grid.clientWidth;
+    return Math.max(1, Math.floor(w / 100));
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!isDrawerOpen()) return;
+    const btn = e.target && e.target.closest && e.target.closest('.drawer-btn');
+    if (!btn) return;
+    const grid = btn.closest('.drawer-grid');
+    if (!grid) return;
+    const btns = Array.from(grid.querySelectorAll('.drawer-btn'));
+    const idx = btns.indexOf(btn);
+    if (idx < 0) return;
+    const cols = colCount(grid);
+    let next = idx;
+    switch (e.key) {
+      case 'ArrowRight': next = (idx + 1) % btns.length; break;
+      case 'ArrowLeft':  next = (idx - 1 + btns.length) % btns.length; break;
+      case 'ArrowDown':  next = Math.min(btns.length - 1, idx + cols); break;
+      case 'ArrowUp':    next = Math.max(0, idx - cols); break;
+      case 'Home':       next = 0; break;
+      case 'End':        next = btns.length - 1; break;
+      default: return;
+    }
+    e.preventDefault();
+    btns[next].focus();
+  });
 })();

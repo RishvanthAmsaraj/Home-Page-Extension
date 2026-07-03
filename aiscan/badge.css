@@ -72,12 +72,15 @@
        so the panel content waits until the pill is ~80% grown
        before fading in — avoids the "splat" of content onto a
        still-resizing container. */
+  /* iOS smooth — no overshoot. Slower (.58s) so the eye can
+     track the resize; curves without overshoot feel slightly
+     slower than equivalent bouncy ones. */
   transition:
-    max-width    .48s cubic-bezier(.34, 1.56, .64, 1),
-    max-height   .48s cubic-bezier(.34, 1.56, .64, 1),
-    padding      .48s cubic-bezier(.34, 1.56, .64, 1),
-    border-radius .48s cubic-bezier(.34, 1.56, .64, 1),
-    background   .25s ease;
+    max-width    .58s cubic-bezier(.32, .72, 0, 1),
+    max-height   .58s cubic-bezier(.32, .72, 0, 1),
+    padding      .58s cubic-bezier(.32, .72, 0, 1),
+    border-radius .58s cubic-bezier(.32, .72, 0, 1),
+    background   .3s ease;
   overflow: hidden;
   max-width: 72px;
   max-height: 24px;
@@ -207,9 +210,9 @@
 .hz-ai-panel {
   display: none;
   width: 100%;
-  /* Stagger the content fade so it kicks in once the pill is mostly
-     grown — feels less jittery than text scaling with the container. */
-  animation: hzPanelIn .42s cubic-bezier(.32, .72, 0, 1) .14s both;
+  /* Content fades in once the pill is mostly grown — avoids the
+     'splat' of text onto a still-resizing container. */
+  animation: hzPanelIn .5s cubic-bezier(.32, .72, 0, 1) .12s both;
 }
 
 .hz-ai-badge.hz-expanded .hz-ai-panel {
@@ -217,14 +220,8 @@
 }
 
 @keyframes hzPanelIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(.985);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Panel header */
@@ -351,11 +348,11 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition:
-    max-width    .48s cubic-bezier(.34, 1.56, .64, 1),
-    max-height   .5s  cubic-bezier(.34, 1.45, .64, 1),
-    padding      .48s cubic-bezier(.34, 1.56, .64, 1),
-    border-radius .48s cubic-bezier(.34, 1.56, .64, 1),
-    box-shadow   .25s ease;
+    max-width    .58s cubic-bezier(.32, .72, 0, 1),
+    max-height   .6s  cubic-bezier(.32, .72, 0, 1),
+    padding      .58s cubic-bezier(.32, .72, 0, 1),
+    border-radius .58s cubic-bezier(.32, .72, 0, 1),
+    box-shadow   .3s ease;
   overflow: hidden;
   max-width: 200px;
   max-height: 32px;
@@ -401,7 +398,7 @@
 .hz-detector-panel {
   display: none;
   width: 100%;
-  animation: hzPanelIn .42s cubic-bezier(.32, .72, 0, 1) .14s both;
+  animation: hzPanelIn .5s cubic-bezier(.32, .72, 0, 1) .12s both;
 }
 
 .hz-page-detector.hz-expanded .hz-detector-panel {

@@ -25,13 +25,24 @@
     </section>
 
     <section class="search-section" id="searchSection">
-      <form id="searchForm">
+      <form id="searchForm" autocomplete="off">
         <div class="search-row">
           <span class="mode-tag" id="modeTag">⬡ Google</span>
           <input type="text" id="searchInput" placeholder="Search..." autofocus spellcheck="false" autocomplete="off" />
           <span class="search-arrow" id="searchArrow">▼</span>
         </div>
       </form>
+      <!-- v3.1 Recent-searches dropdown. Hidden by default; shown
+           when the input has focus AND is empty AND we have history.
+           We position it just below the row so the visual flow
+           reads "type here → previous searches". -->
+      <div class="search-history" id="searchHistory" hidden>
+        <div class="search-history-head">
+          <span>Recent</span>
+          <button type="button" class="search-history-clear" id="searchHistoryClear">Clear all</button>
+        </div>
+        <ul class="search-history-list" id="searchHistoryList"></ul>
+      </div>
       <div class="search-body" id="searchBody">
         <div class="search-drawer" id="searchDrawer">
           <div class="drawer-section">

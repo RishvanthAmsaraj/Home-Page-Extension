@@ -8,6 +8,7 @@
   "use strict";
   console.log("[AI Signal] content script loaded on", location.hostname, location.pathname);
 
+  const DISMISS_KEY = "***";
   const STORAGE_KEY = "hz";
 
   /* ──────────────────────────────────────────────────────────────────
@@ -221,6 +222,7 @@
     badge.className = "hz-ai-badge";
     badge.dataset.band = band;
     badge.dataset.hostname = hostname;
+    if (location && location.href) card.dataset.hzUrl = location.href;
 
     badge.innerHTML = `
       <span class="hz-ai-dot" aria-hidden="true"></span>
@@ -236,7 +238,10 @@
           <button class="hz-btn hz-btn-human">✓ Human</button>
           <button class="hz-btn hz-btn-ai">✗ AI</button>
         </div>
-        <div class="hz-panel-foot">Heuristic estimate — not a definitive verdict</div>
+        <div class="hz-panel-foot">
+          <span>Heuristic estimate — not a definitive verdict</span>
+          <button type="button" class="hz-panel-method-link" data-action="methodology">How this works</button>
+        </div>
       </div>
     `;
 
@@ -466,3 +471,64 @@
   startObserver();
   console.log("[AI Signal] observer started");
 })();
+
+  /* ── Methodology modal (in-page, self-contained)
+     ────────────────────────────────────────────────────────────────────
+     When the user clicks "How this works" inside an expanded pill,
+     we render the methodology modal directly into the page — no
+     round-trip to the new tab needed. Same content the new tab's
+     methodology modal shows, condensed for in-page use. */
+  let _methodologyModal = null;
+  function showMethodologyModal(){
+    if (_methodologyModal) { _methodologyModal.remove(); _methodologyModal = null; }
+    const root = document.createElement('div');
+    root.className = 'hz-method-modal';
+    root.innerHTML = `
+      <div class="hz-method-card" role="dialog" aria-modal="true" aria-label="How AI Signal works">
+        <button type="button" class="hz-method-close" aria-label="Close">✕</button>
+        <h3>How AI Signal works</h3>
+        <p class="hz-method-sub">A heuristic estimate of how likely a page is to be AI-generated text.</p>
+
+        <h4>The honest reality</h4>
+        <p>No client-side detector is reliable. Heuristics can be a useful first-pass “smell test”, but they should never be treated as a definitive verdict.</p>
+
+        <h4>What we look at</h4>
+        <ul>
+          <li><strong>Sentence-length uniformity.</strong> AI prose tends to have very consistent sentence lengths; humans are burstier.</li>
+          <li><strong>Em-dash + transition density.</strong> AI leans heavily on — plus words like <em>Furthermore</em>, <em>Moreover</em>, <em>Additionally</em>, <em>In conclusion</em>.</li>
+          <li><strong>Vocabulary distribution.</strong> Phrases like <em>delve into</em>, <em>comprehensive guide</em>, <em>actionable insights</em>, <em>digital landscape</em> are flag-weighted.</li>
+          <li><strong>Author / byline signal.</strong> Self-disclosure (“as an AI”) or missing byline tips the score up.</li>
+          <li><strong>Domain signal.</strong> URL shape (TLD, hyphen slug, date-stamped path) combined with a small whitelist of known publications.</li>
+        </ul>
+
+        <h4>What it can’t do</h4>
+        <ul>
+          <li>False positives on formal human prose (legal briefs, dense academic writing).</li>
+          <li>Lightly-edited AI text will usually pass.</li>
+          <li>No detection of AI images, AI audio, or AI video.</li>
+        </ul>
+
+        <p class="hz-method-foot">Score thresholds: low &lt;35 · medium 35–65 · high &gt;65. Defaults tuned to under-flag at medium sensitivity.</p>
+      </div>
+    `;
+    document.body.appendChild(root);
+    _methodologyModal = root;
+
+    const close = () => { root.remove(); _methodologyModal = null; };
+    root.querySelector('.hz-method-close').addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      close();
+    }, true);
+    root.addEventListener('pointerdown', (e) => {
+      if (e.target === root) {
+        e.preventDefault(); e.stopPropagation();
+        close();
+      }
+    }, true);
+    document.addEventListener('keydown', function onEsc(e){
+      if (e.key === 'Escape' && _methodologyModal) {
+        _methodologyModal.remove(); _methodologyModal = null;
+        document.removeEventListener('keydown', onEsc, true);
+      }
+    }, true);
+  }
