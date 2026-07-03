@@ -253,6 +253,7 @@
     if (!text || text.length < 40) return { score: 0, hits: [], markers: 0 };
     const t = String(text);
     const lower = t.toLowerCase();
+    const words = t.split(/\s+/).filter(Boolean).length;
 
     let raw = 0;
     const hits = [];
@@ -347,7 +348,6 @@
     // on them. We require > 4 per 100 words AND at least 3 total
     // to add weight, so a snippet with one or two em-dashes (which
     // is normal) doesn't get dinged.
-    const words = t.split(/\s+/).filter(Boolean).length;
     const dashCount = (t.match(/—/g) || []).length;
     if (words > 0) {
       const dashRatio = dashCount / words;
