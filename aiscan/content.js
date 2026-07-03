@@ -22,7 +22,7 @@
 
   // Default prefs
   let prefs = {
-    aiSignal: true,
+    aiSignal: false,
     aiSensitivity: "med",
     aiHideAbove: 0,
     aiDismissed: {},
@@ -37,9 +37,8 @@
         prefs = { ...prefs, ...stored };
         console.log("[AI Signal] Prefs loaded:", prefs.aiSignal ? "ON" : "OFF");
         
-        if (prefs.aiSignal) {
-          init();
-        }
+        // Always init - if aiSignal is false, badges just won't show
+        init();
       });
     } catch (e) {
       console.log("[AI Signal] Storage error, using defaults");
@@ -258,7 +257,10 @@
 
   // Process all results
   function processAll() {
-    if (!prefs.aiSignal) return;
+    if (!prefs.aiSignal) {
+      console.log("[AI Signal] Feature disabled, skipping");
+      return;
+    }
     
     const cards = findResults();
     console.log("[AI Signal] Found", cards.length, "results");
