@@ -275,9 +275,17 @@ function tagOnInput(){
 
 function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
 function openDrawer(){
-  document.getElementById("searchSection").classList.add("open");
-  // Drawer expands absolutely below the search row.
-  // Links stay fixed — no layout push needed.
+  const sec = document.getElementById("searchSection");
+  sec.classList.add("open");
+  sec.setAttribute("aria-expanded", "true");
+  // Save which element had focus so closeDrawer() can restore it.
+  const inp = document.getElementById("searchInput");
+  _drawerReturnFocus = (document.activeElement && document.activeElement !== document.body)
+    ? document.activeElement
+    : inp;
+  // Close the recent-searches dropdown so the user isn't looking
+  // at two overlapping panels — the drawer is the active surface.
+  try { closeSearchHistory(); } catch (_) {}
 }
 function closeDrawer(){
   const sec=document.getElementById("searchSection");
@@ -328,7 +336,17 @@ function renderDrawer(){
       const kind=btn.dataset.kind,key=btn.dataset.key;
       if(kind==="web"){state.searchEngine=key;state.searchType="all";}
       else{state.aiProvider=key;state.searchType="ai";}
+      // Remember which key was clicked so we can re-focus the
+      // matching button AFTER refreshUI() tears down this DOM
+      // and rebuilds it. Without this, focus would die and
+      // arrow keys would no longer navigate the grid — the
+      // user would have to press '/' again to get back in.
+      e.currentTarget.dataset.hzRememberFocus = "1";
       refreshUI();
+      // Re-focus the freshly-rendered active button so arrow
+      // keys keep working without re-opening the drawer.
+      const fresh = document.querySelector(`.drawer-btn[data-key="${key}"][data-kind="${kind}"]`);
+      if (fresh) fresh.focus();
     });
   });
 }
@@ -393,16 +411,34 @@ const HISTORY_KEY = "hzHistory";
 const HISTORY_MAX = 12;
 let searchHistory = []; // [{ q, t }]
 
+/* Synchronous bootstrap loader. The page is auto-focused on
+   load, so we need history entries ready BEFORE the first focus
+   event fires — otherwise the dropdown shows nothing the first
+   time. We read localStorage synchronously here, then chrome's
+   async storage overwrites once it returns. */
+function _loadSearchHistorySync(){
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) {
+      const v = JSON.parse(raw);
+      if (Array.isArray(v)) return v;
+    }
+  } catch {}
+  return [];
+}
 async function loadSearchHistory(){
+  // Start with whatever localStorage had (sync, instant)
+  searchHistory = _loadSearchHistorySync();
+  // Then asynchronously hydrate from chrome.storage.local and
+  // prefer that if it has data.
   try {
     const r = await chrome.storage.local.get([HISTORY_KEY]);
-    searchHistory = Array.isArray(r[HISTORY_KEY]) ? r[HISTORY_KEY] : [];
-  } catch {
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      searchHistory = raw ? JSON.parse(raw) : [];
-    } catch { searchHistory = []; }
-  }
+    if (Array.isArray(r[HISTORY_KEY])) {
+      searchHistory = r[HISTORY_KEY];
+      // Mirror to localStorage so the next sync read is fresh
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory)); } catch {}
+    }
+  } catch {}
 }
 async function saveSearchHistory(){
   const trimmed = searchHistory.slice(0, HISTORY_MAX);
@@ -462,24 +498,20 @@ function renderSearchHistory(){
   });
 }
 
-/* Show / hide the dropdown. We use the .open class so the CSS
-   max-height + opacity transition kicks in (the [hidden] attribute
-   alone has no transition). */
+/* Show / hide. Just toggle the .open class — the CSS handles
+   the max-height + opacity + padding transition. No more
+   [hidden] attribute, no more forced reflows, no more setTimeout
+   for after-transition cleanup. */
 function openSearchHistory(){
   const el = document.getElementById('searchHistory');
-  if (!el || !searchHistory.length) return;
-  el.hidden = false;
-  // Force a reflow so the transition runs (display change first).
-  // eslint-disable-next-line no-unused-expressions
-  el.offsetHeight;
+  if (!el) return;
+  if (!searchHistory.length) return; // nothing to show
   el.classList.add('open');
 }
 function closeSearchHistory(){
   const el = document.getElementById('searchHistory');
   if (!el) return;
   el.classList.remove('open');
-  // After the transition, set [hidden] so it's not in tab order.
-  setTimeout(() => { el.hidden = true; }, 350);
 }
 
 /* Up/Down arrow nav within the open dropdown. We track the active
@@ -793,12 +825,15 @@ document.addEventListener("keydown",e=>{
     submitSearch(v);
   });
 
-  /* v3.1 — Recent-searches wiring.
-     Show dropdown on focus when input is empty. Hide when the user
-     starts typing, submits, or blurs (unless focus moves INTO the
-     dropdown itself). Arrow keys navigate; Enter selects. */
-  await loadSearchHistory();
+  /* v3.2 — Recent-searches wiring.
+     Hydrate history synchronously first (so the initial auto-focus
+     finds entries even before chrome.storage resolves), then
+     start the async chrome.storage hydrate in the background. */
+  searchHistory = _loadSearchHistorySync();
   renderSearchHistory();
+  // Fire-and-forget: chrome.storage will overwrite + re-render if
+  // it had fresher data (e.g. synced from another device).
+  loadSearchHistory().then(() => renderSearchHistory());
   input.addEventListener("focus", () => {
     if (!input.value.length) openSearchHistory();
   });

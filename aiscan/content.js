@@ -342,6 +342,19 @@
       dismissForDomain(hostname);
     }, true);
 
+    // Methodology link inside the expanded panel — opens a
+    // self-contained modal in-page (no round-trip to the new tab
+    // needed).
+    const methodBtn = badge.querySelector('.hz-panel-method-link');
+    if (methodBtn) {
+      methodBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        showMethodologyModal();
+      }, true);
+    }
+
     // Mark-as-human / Mark-as-AI buttons inside the panel
     badge.querySelector(".hz-btn-human").addEventListener("pointerdown", (e) => {
       e.preventDefault();
