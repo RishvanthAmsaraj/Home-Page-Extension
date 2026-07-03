@@ -5,7 +5,7 @@
 (function () {
   "use strict";
   
-  const STORAGE_KEY = "hz";
+  const STORAGE_KEY = "hz";  // Same key as tab.js uses
   
   // Check if we're on a search page
   const hostname = location.hostname || "";
@@ -33,15 +33,18 @@
   function loadPrefs() {
     try {
       chrome.storage.sync.get([STORAGE_KEY], (data) => {
+        console.log("[AI Signal] Raw storage data:", data);
         const stored = (data && data[STORAGE_KEY]) || {};
+        console.log("[AI Signal] Stored prefs:", stored);
         prefs = { ...prefs, ...stored };
-        console.log("[AI Signal] Prefs loaded:", prefs.aiSignal ? "ON" : "OFF");
+        console.log("[AI Signal] Merged prefs:", prefs);
+        console.log("[AI Signal] aiSignal =", prefs.aiSignal);
         
         // Always init - if aiSignal is false, badges just won't show
         init();
       });
     } catch (e) {
-      console.log("[AI Signal] Storage error, using defaults");
+      console.log("[AI Signal] Storage error, using defaults:", e);
       init();
     }
   }
@@ -76,6 +79,7 @@
   // Find all search result cards
   function findResults() {
     const results = [];
+    const seen = new Set();
     
     if (isGoogle) {
       // Try multiple selectors for Google
@@ -90,6 +94,10 @@
       for (const sel of selectors) {
         const cards = document.querySelectorAll(sel);
         cards.forEach(card => {
+          // Skip duplicates
+          if (seen.has(card)) return;
+          seen.add(card);
+          
           // Skip if already processed or is a container
           if (card.dataset.hzDone) return;
           if (card.closest(".g-blk")) return;
@@ -104,6 +112,7 @@
       }
     }
     
+    console.log("[AI Signal] findResults found:", results.length, "cards");
     return results;
   }
 
