@@ -63,12 +63,21 @@
   will-change: transform;
   isolation: isolate;
 
+  /* iOS-grade timing:
+       container expansion  480ms with a subtle spring overshoot
+       (cubic-bezier .34 1.56 .64 1)
+       panel content fade  420ms with a smooth ease-out
+       (cubic-bezier .32 .72 0 1)
+       Stagger is applied via the .hz-panel { transition-delay }
+       so the panel content waits until the pill is ~80% grown
+       before fading in — avoids the "splat" of content onto a
+       still-resizing container. */
   transition:
-    max-width 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    max-height 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    padding   0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    border-radius 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    background 0.25s ease;
+    max-width    .48s cubic-bezier(.34, 1.56, .64, 1),
+    max-height   .48s cubic-bezier(.34, 1.56, .64, 1),
+    padding      .48s cubic-bezier(.34, 1.56, .64, 1),
+    border-radius .48s cubic-bezier(.34, 1.56, .64, 1),
+    background   .25s ease;
   overflow: hidden;
   max-width: 72px;
   max-height: 24px;
@@ -198,7 +207,9 @@
 .hz-ai-panel {
   display: none;
   width: 100%;
-  animation: hzPanelIn 0.25s cubic-bezier(0.32, 0.72, 0.24, 1) 0.04s both;
+  /* Stagger the content fade so it kicks in once the pill is mostly
+     grown — feels less jittery than text scaling with the container. */
+  animation: hzPanelIn .42s cubic-bezier(.32, .72, 0, 1) .14s both;
 }
 
 .hz-ai-badge.hz-expanded .hz-ai-panel {
@@ -208,11 +219,11 @@
 @keyframes hzPanelIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(6px) scale(.985);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -340,11 +351,11 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   transition:
-    max-width 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    max-height 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    padding   0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    border-radius 0.35s cubic-bezier(0.32, 0.72, 0.24, 1),
-    box-shadow 0.25s ease;
+    max-width    .48s cubic-bezier(.34, 1.56, .64, 1),
+    max-height   .5s  cubic-bezier(.34, 1.45, .64, 1),
+    padding      .48s cubic-bezier(.34, 1.56, .64, 1),
+    border-radius .48s cubic-bezier(.34, 1.56, .64, 1),
+    box-shadow   .25s ease;
   overflow: hidden;
   max-width: 200px;
   max-height: 32px;
@@ -390,7 +401,7 @@
 .hz-detector-panel {
   display: none;
   width: 100%;
-  animation: hzPanelIn 0.25s cubic-bezier(0.32, 0.72, 0.24, 1) 0.04s both;
+  animation: hzPanelIn .42s cubic-bezier(.32, .72, 0, 1) .14s both;
 }
 
 .hz-page-detector.hz-expanded .hz-detector-panel {
@@ -582,5 +593,17 @@
   .hz-page-detector-badge,
   .hz-page-detector.hz-expanded .hz-page-detector-badge {
     max-width: 100%;
+  }
+}
+
+
+/* Respect reduced-motion preference — collapse to instant flip */
+@media (prefers-reduced-motion: reduce) {
+  .hz-ai-badge,
+  .hz-page-detector-badge,
+  .hz-ai-panel,
+  .hz-detector-panel {
+    transition-duration: 0.001s !important;
+    animation-duration: 0.001s !important;
   }
 }

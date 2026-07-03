@@ -170,9 +170,60 @@ body{
   z-index:2}
 .search-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow),0 0 24px var(--accent-glow)}
 
-.mode-tag{flex-shrink:0;font-size:.72rem;font-weight:500;color:var(--accent);background:var(--surface-active-rgba);padding:.06rem .4rem;border-radius:5px;white-space:nowrap;line-height:1.6;margin-left:.7rem;transition:opacity .35s,transform .3s;display:flex;align-items:center;gap:.25rem}
-.mode-tag svg{width:12px;height:12px;display:block;flex-shrink:0}
-.mode-tag.hidden{opacity:0;transform:translateX(-4px);pointer-events:none}
+/* Mode tag — the chip on the left of the search input that shows the
+   active engine / AI provider. Two states:
+
+   (default)  — full chip with icon + label (e.g. "[icon] Google")
+   .compact   — icon-only, slimmer. Triggered when the user has typed
+                something; the label collapses with a smooth width +
+                opacity transition instead of vanishing outright.
+
+   The chip stays interactive in BOTH states — clicking it always
+   opens the drawer so the user can switch engines. */
+.mode-tag{
+  flex-shrink:0;
+  display:inline-flex;align-items:center;gap:.3rem;
+  max-width:160px;                   /* room for the label */
+  padding:.06rem .45rem;
+  margin-left:.7rem;
+  border-radius:5px;
+  background:var(--surface-active-rgba);
+  color:var(--accent);
+  font-size:.72rem;font-weight:500;
+  line-height:1.6;white-space:nowrap;
+  cursor:pointer;
+  overflow:hidden;                   /* clip the collapsing label */
+  transition:
+    max-width .35s var(--ease-spring),
+    padding   .35s var(--ease-spring),
+    background-color .25s var(--ease-smooth),
+    color .25s var(--ease-smooth);
+}
+.mode-tag:hover{background-color:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+.mode-tag svg{
+  width:12px;height:12px;flex-shrink:0;display:block;
+}
+/* The label sits in its own span so we can collapse it independently
+   (translate it out + fade) without affecting the icon position. */
+.mode-tag .mode-label{
+  display:inline-block;
+  opacity:1;
+  transform:translateX(0);
+  transition:opacity .25s var(--ease-smooth), transform .25s var(--ease-smooth), max-width .35s var(--ease-spring);
+  max-width:140px;
+  overflow:hidden;text-overflow:ellipsis;
+}
+
+/* Compact state: icon-only, tight padding, label clipped out. */
+.mode-tag.compact{
+  max-width:24px;
+  padding:.06rem .25rem;
+}
+.mode-tag.compact .mode-label{
+  opacity:0;
+  transform:translateX(-6px);
+  max-width:0;
+}
 
 #searchInput{flex:1;padding:.85rem .7rem;font-size:.92rem;font-family:inherit;background:transparent;border:none;color:var(--text);outline:none;min-width:0}
 #searchInput::placeholder{color:var(--text-dim);opacity:.45}
@@ -190,36 +241,18 @@ body{
 /* ── Layout push for links ── */
 .links{display:flex;flex-wrap:wrap;justify-content:center;gap:.6rem;width:100%;max-width:500px;margin:0;padding:0;animation:fadeUp .6s .3s both;position:relative;z-index:1}
 
-/* ── Drawer ── */
+/* ── Drawer — transparent inner strip. The parent
+   .search-section.open owns the chrome (border + bg + shadow
+   + focus glow). Drawer only carries its own spacing. ── */
 .search-drawer{
   position:relative;
   padding:.1rem .65rem .55rem;
-  background:var(--surface);
-  backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));
-  border:0 solid var(--border);
-  border-width:0 1px 1px 1px;
-  border-radius:0 0 var(--r) var(--r);
-  transition:box-shadow .45s var(--ease-smooth);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 8px 28px rgba(0,0,0,0.08);
+  background:transparent;
+  border:none;
+  border-radius:0;
+  transition:none;
 }
 
-
-/* ── Continuous glow across row + drawer */
-
-/* ── Continuous glow — row and drawer fade in together, same box-shadow ── */
-.search-section.open .search-row{border-radius:var(--r) var(--r) 0 0;border-bottom:0}
-.search-section.open:focus-within .search-row{
-  box-shadow:0 0 0 2px var(--accent-glow),0 0 32px var(--accent-glow);
-  border-top-color:var(--accent);
-  border-left-color:var(--accent);
-  border-right-color:var(--accent);
-  border-bottom:none;
-}
-.search-section.open:focus-within .search-drawer{
-  box-shadow:0 0 0 2px var(--accent-glow),0 8px 28px rgba(0,0,0,0.08),
-    inset 0 1px 0 rgba(255,255,255,.04);
-  border-color:color-mix(in srgb,var(--accent) 40%,var(--border));
-}
 
 /* ── Drawer tab bar ──
      Tab active state matches drawer-btn / filter-chip active state —

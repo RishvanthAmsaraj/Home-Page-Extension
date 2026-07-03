@@ -231,12 +231,19 @@ function svgIcon(key){return LOGOS[key]||LOGOS.google}
 /* ── Tag + drawer open/close ── */
 function updateModeTag(){
   const tag=document.getElementById("modeTag");
-  if(isAI())tag.innerHTML=svgIcon(state.aiProvider)+' '+AI_L[state.aiProvider];
-  else tag.innerHTML=svgIcon(state.searchEngine)+' '+state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
+  const icon = isAI() ? svgIcon(state.aiProvider)
+                      : svgIcon(state.searchEngine);
+  const label = isAI() ? AI_L[state.aiProvider]
+                       : state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
+  // Wrap label in a span so the compact (icon-only) state can fade
+  // the label out independently of the icon.
+  tag.innerHTML = icon + ' <span class="mode-label">' + label + '</span>';
 }
 function tagOnInput(){
   const i=document.getElementById("searchInput");
-  document.getElementById("modeTag").classList.toggle("hidden",i.value.length>0);
+  // Compact the chip to icon-only while typing so the input gets more
+  // room without losing the brand indicator entirely.
+  document.getElementById("modeTag").classList.toggle("compact",i.value.length>0);
 }
 
 function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
