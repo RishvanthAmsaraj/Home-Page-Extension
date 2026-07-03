@@ -10,7 +10,8 @@
   "host_permissions": [
     "*://*.google.com/search*",
     "*://duckduckgo.com/*",
-    "*://search.brave.com/search*"
+    "*://search.brave.com/search*",
+    "*://safebrowsing.googleapis.com/*"
   ],
   "background": {
     "service_worker": "aiscan/background.js"
@@ -20,7 +21,8 @@
       "matches": [
         "*://*.google.com/search*",
         "*://duckduckgo.com/*",
-        "*://search.brave.com/search*"
+        "*://search.brave.com/search*",
+    "*://safebrowsing.googleapis.com/*"
       ],
       "js": ["aiscan/score.js", "aiscan/content.js"],
       "css": ["aiscan/badge.css"],
@@ -31,7 +33,8 @@
       "exclude_matches": [
         "*://*.google.com/search*",
         "*://duckduckgo.com/*",
-        "*://search.brave.com/search*"
+        "*://search.brave.com/search*",
+    "*://safebrowsing.googleapis.com/*"
       ],
       "js": ["aiscan/score.js", "aiscan/detector.js"],
       "css": ["aiscan/badge.css"],

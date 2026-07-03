@@ -26,11 +26,17 @@
       url: "cite, .tjvcx, .dyjrff, div.TbwUpd, span.V6YFzc",
     },
     duckduckgo: {
-      result: "article[data-testid='result'], .result",
-      anchor: "a[data-testid='result-title-a'], h2 a",
-      title: "h2 a, h2",
-      snippet: "[data-result='snippet'], .result__snippet",
-      url: "[data-testid='result-extras-url-link'], .result__url",
+      // Each organic web result is an <article> with
+      // data-testid="result". The modern SPA also renders results
+      // inside <li data-layout="organic"> wrappers (newer 2024+
+      // markup). .result is the legacy HTML version selector.
+      // We EXCLUDE knowledge panels, ads, and inline zero-click
+      // answer boxes by filtering inside shouldSkipCard.
+      result: "article[data-testid='result'], li[data-layout='organic'] article, .result, ol.react-results--main li article",
+      anchor: "a[data-testid='result-title-a'], h2 a, a.result__a",
+      title: "h2 a, h2, .result__title a, [data-testid='result-title-a']",
+      snippet: "[data-result='snippet'], .result__snippet, [data-testid='result-snippet']",
+      url: "[data-testid='result-extras-url-link'], .result__url, [data-testid='result-extras'] a",
     },
     brave: {
       result: ".snippet[data-type='web'], .snippet",

@@ -654,6 +654,23 @@ function renderSettings(){
           <strong>Heuristic, not a verdict.</strong> False positives are possible — formal human writing can get flagged. Every result can be dismissed (\u2715) per-domain. Read the
           <a href="#" id="aiHowLink" style="color:var(--accent)">methodology</a> for details.
         </p>
+        <div style="margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--border)">
+          <label class="settings-label" style="font-size:.7rem;opacity:.75">
+            Google Safe Browsing API key
+            <span id="sbKeyStatus" style="margin-left:.4rem;font-size:.65rem;opacity:.6"></span>
+          </label>
+          <input type="password" id="sbKeyInput" class="link-editor le-url"
+                 placeholder="Paste your API key (AIza...) \u2014 optional"
+                 style="width:100%;font-family:monospace;font-size:.72rem"
+                 autocomplete="off" />
+          <p class="settings-hint" style="margin-top:.3rem">
+            Optional. When set, each search result is checked against
+            <a href="https://developers.google.com/safe-browsing/v4/get-started" target="_blank" style="color:var(--accent)">Google Safe Browsing</a>
+            for malware / phishing. Get a key from Google Cloud Console
+            \u2192 APIs &amp; Services \u2192 Credentials. Apply API
+            restrictions (Safe Browsing API only) before saving.
+          </p>
+        </div>
       `:""}
     </div>
     <div class="settings-group">
@@ -682,6 +699,46 @@ function renderSettings(){
   document.querySelectorAll("[data-aisens]").forEach(b=>b.addEventListener("click",()=>{state.aiSensitivity=b.dataset.aisens;saveState();renderSettings()}));
   document.getElementById("aiHideSlider")?.addEventListener("input",e=>{
     state.aiHideAbove=parseInt(e.target.value,10)||0;
+  /* v3.1 \u2014 Google Safe Browsing API key wiring.
+     The user pastes their own key here. It's stored in
+     chrome.storage.sync under "hz_sb_key" (never bundled with the
+     extension). When set, the background service worker uses it
+     to check each search result against Safe Browsing. When unset,
+     the check is skipped silently. */
+  try {
+    const sbInput = document.getElementById('sbKeyInput');
+    const sbStatus = document.getElementById('sbKeyStatus');
+    if (sbInput && sbStatus) {
+      chrome.storage.sync.get(['hz_sb_key'], (r) => {
+        const k = r && r.hz_sb_key;
+        if (k && k.length > 10) {
+          sbInput.value = k;
+          sbStatus.textContent = '\u2713 key configured';
+          sbStatus.style.color = 'var(--accent)';
+        } else {
+          sbStatus.textContent = '(not set)';
+          sbStatus.style.color = 'var(--text-muted)';
+        }
+      });
+      let sbTimer = null;
+      sbInput.addEventListener('input', () => {
+        clearTimeout(sbTimer);
+        sbTimer = setTimeout(() => {
+          const v = sbInput.value.trim();
+          if (v && v.length > 10) {
+            chrome.storage.sync.set({ hz_sb_key: v });
+            sbStatus.textContent = '\u2713 key saved';
+            sbStatus.style.color = 'var(--accent)';
+          } else {
+            chrome.storage.sync.remove('hz_sb_key');
+            sbStatus.textContent = v ? '(too short)' : '(not set)';
+            sbStatus.style.color = v ? '#dc2626' : 'var(--text-muted)';
+          }
+        }, 250);
+      });
+    }
+  } catch (_) {}
+
     document.getElementById("aiHideVal").textContent=state.aiHideAbove||"—";
     saveState();
   });
@@ -834,6 +891,14 @@ document.addEventListener("keydown",e=>{
   // Fire-and-forget: chrome.storage will overwrite + re-render if
   // it had fresher data (e.g. synced from another device).
   loadSearchHistory().then(() => renderSearchHistory());
+  // If the input is already focused (autofocus), open history now.
+  // The autofocus event may have fired before the focus listener
+  // was registered, so we trigger the open manually here.
+  setTimeout(() => {
+    if (document.activeElement === input && !input.value.length && !isDrawerOpen()) {
+      openSearchHistory();
+    }
+  }, 0);
   input.addEventListener("focus", () => {
     if (!input.value.length) openSearchHistory();
   });
@@ -900,23 +965,79 @@ document.addEventListener("keydown",e=>{
   }
   document.addEventListener('keydown', (e) => {
     if (!isDrawerOpen()) return;
-    // If the history dropdown is open, its own handler owns arrows.
-    const hist = document.getElementById('searchHistory');
-    if (hist && hist.classList.contains('open')) return;
-    // Trigger from EITHER a drawer-btn OR the search input — the
-    // input is the common case (the user just opened the drawer
-    // and the input still has focus).
     const t = e.target;
-    const isInput = t && t.id === 'searchInput';
-    const btn = t && t.closest && t.closest('.drawer-btn');
+    if (!t) return;
+
+    // Tab bar: Left/Right (and Up/Down) switch Web Search <-> AI Chat.
+    const tab = t.closest && t.closest('.drawer-tab');
+    if (tab) {
+      const tabs = Array.from(document.querySelectorAll('.drawer-tab'));
+      let targetMode = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const i = tabs.indexOf(tab);
+        targetMode = tabs[(i + 1) % tabs.length].dataset.mode;
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const i = tabs.indexOf(tab);
+        targetMode = (i === 0 ? tabs[tabs.length - 1] : tabs[i - 1]).dataset.mode;
+      } else {
+        return;
+      }
+      // Click the target tab so refreshUI fires (and the grid
+      // below updates). After refreshUI, the old tab buttons are
+      // detached, so we re-query the DOM for the matching tab
+      // and focus it. Use a microtask so refreshUI completes.
+      const targetTab = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
+      if (targetTab) targetTab.click();
+      requestAnimationFrame(() => {
+        const fresh = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
+        if (fresh) fresh.focus();
+      });
+      return;
+    }
+
+    const isInput = t.id === 'searchInput';
+
+    // From the search input: Up reaches the tab bar; Left/Right
+    // ALSO switches tabs (more discoverable than just Up).
+    if (isInput) {
+      if (e.key === 'ArrowUp') {
+        const activeTab = document.querySelector('.drawer-tab.active')
+          || document.querySelector('.drawer-tab');
+        if (activeTab) {
+          e.preventDefault();
+          activeTab.focus();
+          return;
+        }
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const tabs = Array.from(document.querySelectorAll('.drawer-tab'));
+        if (tabs.length) {
+          e.preventDefault();
+          const i = tabs.findIndex(x => x.classList.contains('active'));
+          const targetMode = (e.key === 'ArrowRight'
+            ? tabs[(i + 1) % tabs.length]
+            : tabs[(i - 1 + tabs.length) % tabs.length]
+          ).dataset.mode;
+          const targetTab = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
+          if (targetTab) targetTab.click();
+          requestAnimationFrame(() => {
+            const fresh = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
+            if (fresh) fresh.focus();
+          });
+          return;
+        }
+      }
+    }
+
+    // Grid navigation: drawer-btn OR input.
+    const btn = t.closest && t.closest('.drawer-btn');
     if (!isInput && !btn) return;
     const grid = (btn ? btn.closest('.drawer-grid') : document.getElementById('drawerGrid'));
     if (!grid) return;
     const btns = Array.from(grid.querySelectorAll('.drawer-btn'));
     if (!btns.length) return;
-    // When the user is in the input, start from the active button
-    // (if any) or the first; when on a button, start from that
-    // button.
     let idx = btn ? btns.indexOf(btn) : -1;
     if (idx < 0) {
       const active = grid.querySelector('.drawer-btn.active');

@@ -572,3 +572,10 @@ body{
   background:var(--surface-active-rgba);
   color:var(--accent);
 }
+
+/* Belt-and-suspenders: even if any child accidentally has the
+   [hidden] attribute, never let it force display:none inside our
+   drawer / history (we control visibility via .open classes). */
+.search-history[hidden],
+.drawer-body [hidden],
+.search-body [hidden] { display: block !important; }
