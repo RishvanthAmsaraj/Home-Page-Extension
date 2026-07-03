@@ -6,9 +6,11 @@
 // Cache for Safe Browsing results
 const safeBrowsingCache = {};
 
+// Google Safe Browsing API key
+// Get your own: https://developers.google.com/safe-browsing/v4/get-started
+const SAFE_BROWSING_API_KEY = "[REDACTED-SAFE-BROWSING-KEY]";
+
 // Google Safe Browsing API check
-// Note: In production, get your own API key from Google Cloud Console
-// https://developers.google.com/safe-browsing/v4/get-started
 async function checkSafeBrowsing(hostname) {
   // Return cached result if available (cache for 1 hour)
   const now = Date.now();
@@ -17,26 +19,53 @@ async function checkSafeBrowsing(hostname) {
   }
   
   try {
-    // For demo purposes, we'll simulate the API response
-    // In production, replace this with actual API call:
-    // const apiKey = "YOUR_API_KEY";
-    // const url = `https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${apiKey}`;
+    const url = `https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${SAFE_BROWSING_API_KEY}`;
     
-    // Simulated check — in production this would be a real API call
-    // that checks Google's Safe Browsing database
-    const simulatedResult = {
-      threats: [],
+    const body = {
+      client: {
+        clientId: "horizon-tab",
+        clientVersion: "1.8.0"
+      },
+      threatInfo: {
+        threatTypes: [
+          "MALWARE",
+          "SOCIAL_ENGINEERING",
+          "UNWANTED_SOFTWARE",
+          "POTENTIALLY_HARMFUL_APPLICATION"
+        ],
+        platformTypes: ["ANY_PLATFORM"],
+        threatEntryTypes: ["URL"],
+        threatEntries: [
+          { url: `https://${hostname}` },
+          { url: `http://${hostname}` }
+        ]
+      }
+    };
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const result = {
+      threats: data.matches || [],
       checked: true,
-      source: "simulated"
+      source: "google_safe_browsing"
     };
     
     // Cache the result
     safeBrowsingCache[hostname] = {
-      result: simulatedResult,
+      result: result,
       timestamp: now
     };
     
-    return simulatedResult;
+    return result;
   } catch (err) {
     console.error("[AI Signal Background] Safe Browsing check failed:", err);
     return null;

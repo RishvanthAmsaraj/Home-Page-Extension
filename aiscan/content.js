@@ -346,7 +346,7 @@
         const safeBrowsingResult = await checkSafeBrowsing(hostname);
         
         if (safeBrowsingResult === null) {
-          resultSpan.innerHTML = `<em>Google Safe Browsing: Service unavailable<br>Get a free API key to enable checks</em>`;
+          resultSpan.innerHTML = `<em>Google Safe Browsing: Service unavailable<br>Try again later</em>`;
         } else if (safeBrowsingResult.threats && safeBrowsingResult.threats.length > 0) {
           const threatTypes = safeBrowsingResult.threats.map(t => t.threatType).join(", ");
           resultSpan.innerHTML = `<span style="color:#ef4444">⚠️ UNSAFE: ${threatTypes}</span>`;
