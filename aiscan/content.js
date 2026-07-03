@@ -13,7 +13,7 @@
       // Each result is a direct child of #rso or nested in data-sokoban-container
       // We target the INNER result divs, not the container
       // EXCLUDE: "What people are saying" / trending discussions (g-blk, g-section-with-header)
-      result: "#rso > div > div.g:not(.g-blk), #rso > div.g:not(.g-blk), #rso .g:not(.g-blk), div[data-sokoban-container] .g:not(.g-blk), #search .g:not(.g-blk), [data-snf] .g:not(.g-blk), div.g[data-hveid]:not(.g-blk), div[jscontroller][data-hveid]:not(.g-blk), div[data-ved] > div > div:not(.g-blk), #rso > div > div[data-sokoban-container] > div > div"
+      result: "#rso > div > div.g:not(.g-blk), #rso > div.g:not(.g-blk), #rso .g:not(.g-blk), div[data-sokoban-container] .g:not(.g-blk), #search .g:not(.g-blk), [data-snf] .g:not(.g-blk), div.g[data-hveid]:not(.g-blk), div[jscontroller][data-hveid]:not(.g-blk)"
       anchor: "a[href]:not([role='button'])",
       title: "h3",
       snippet: ".VwiC3b, .yXK7lf, [data-content-feature], .st, .yXK7lf.MB230, span[data-st], div[data-sncf] > div > span, div.VwiC3b",
@@ -460,7 +460,6 @@
   function rescanAll() {
     if (!prefs.aiSignal) {
       document.querySelectorAll(".hz-ai-badge").forEach((b) => b.remove());
-      document.querySelectorAll(".hz-ai-tooltip").forEach((t) => t.remove());
       document.querySelectorAll(".hz-ai-collapsed").forEach((c) => c.classList.remove("hz-ai-collapsed"));
       document.querySelectorAll(".hz-ai-border").forEach((c) => c.classList.remove("hz-ai-border", "hz-ai-low", "hz-ai-med", "hz-ai-high"));
       return;
