@@ -10,8 +10,7 @@
   "host_permissions": [
     "*://*.google.com/search*",
     "*://duckduckgo.com/*",
-    "*://search.brave.com/search*",
-    "*://safebrowsing.googleapis.com/*"
+    "*://search.brave.com/search*"
   ],
   "background": {
     "service_worker": "aiscan/background.js"
