@@ -733,8 +733,16 @@ document.addEventListener("keydown",e=>{
     }
   }
 
-  // Cmd/Ctrl+, opens settings
-  if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+  // Cmd/Ctrl+, opens settings (works on Windows/Linux; Mac
+  // reserves Cmd+, for the system so it never reaches the page).
+  if ((e.metaKey || e.ctrlKey) && (e.key === ',' || e.code === 'Comma')) {
+    e.preventDefault();
+    openSettings();
+    return;
+  }
+  // '?' (shift+/) is the universal "help / settings" shortcut that
+  // DOES work on Mac. Only fires when not already in an input.
+  if (e.key === '?' && !isTypingTarget(e.target)) {
     e.preventDefault();
     openSettings();
   }
@@ -857,13 +865,28 @@ document.addEventListener("keydown",e=>{
   }
   document.addEventListener('keydown', (e) => {
     if (!isDrawerOpen()) return;
-    const btn = e.target && e.target.closest && e.target.closest('.drawer-btn');
-    if (!btn) return;
-    const grid = btn.closest('.drawer-grid');
+    // If the history dropdown is open, its own handler owns arrows.
+    const hist = document.getElementById('searchHistory');
+    if (hist && hist.classList.contains('open')) return;
+    // Trigger from EITHER a drawer-btn OR the search input — the
+    // input is the common case (the user just opened the drawer
+    // and the input still has focus).
+    const t = e.target;
+    const isInput = t && t.id === 'searchInput';
+    const btn = t && t.closest && t.closest('.drawer-btn');
+    if (!isInput && !btn) return;
+    const grid = (btn ? btn.closest('.drawer-grid') : document.getElementById('drawerGrid'));
     if (!grid) return;
     const btns = Array.from(grid.querySelectorAll('.drawer-btn'));
-    const idx = btns.indexOf(btn);
-    if (idx < 0) return;
+    if (!btns.length) return;
+    // When the user is in the input, start from the active button
+    // (if any) or the first; when on a button, start from that
+    // button.
+    let idx = btn ? btns.indexOf(btn) : -1;
+    if (idx < 0) {
+      const active = grid.querySelector('.drawer-btn.active');
+      idx = active ? btns.indexOf(active) : 0;
+    }
     const cols = colCount(grid);
     let next = idx;
     switch (e.key) {

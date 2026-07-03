@@ -181,19 +181,49 @@
     const text = card.textContent || "";
     const html = card.innerHTML || "";
 
+    // Per-URL dismissal (shift+click on the dismiss button)
+    if (prefs.aiDismissedUrls && prefs.aiDismissedUrls.includes(location.href)) return true;
+
+    // No meaningful <h3> link -> can't attribute the score to a URL
+    const h3 = card.querySelector("h3");
+    if (!h3) return true;
+    const wrappingAnchor = h3.closest("a");
+    if (!wrappingAnchor || !wrappingAnchor.href) return true;
+
+    // AI Overview / generative-AI blobs
+    if (text.includes("AI Overview") || text.includes("AI-generated")) return true;
+    if (card.querySelector("g-generative-ai") || card.closest("g-generative-ai")) return true;
+    if (card.closest("[data-attrid='wa:/description']")) return true;
+    if (card.querySelector("[data-attrid='wa:/description']")) return true;
+
+    // Discussion / forum blocks
     if (card.closest(".g-blk")) return true;
     if (card.querySelector("[data-attrid='kc:/discussion/forum']")) return true;
     if (text.includes("What people are saying") || text.includes("trending posts")) return true;
-    if (card.querySelector("g-section-with-header")) return true;
 
-    if (card.closest("[data-attrid='wa:/description']")) return true;
-    if (card.querySelector("[data-attrid='wa:/description']")) return true;
-    if (text.includes("AI Overview") || text.includes("AI-generated")) return true;
-    if (card.querySelector("g-generative-ai")) return true;
-    if (card.closest("g-generative-ai")) return true;
+    // Top stories / videos / images / knowledge panels — widget
+    // cards, not organic text results. Either they have a section
+    // header in their ancestor, or their data-attrid starts with
+    // a widget prefix.
+    if (card.closest("g-section-with-header")) return true;
+    if (card.closest("g-scrolling-carousel, g-section-with-header, [role='region']")) return true;
+    if (card.closest("[data-hpmh], [data-hpfh]")) return true; // carousel wrappers
+    const parentSection = card.closest("[data-attrid]");
+    if (parentSection) {
+      const a = parentSection.getAttribute("data-attrid") || "";
+      if (a.startsWith("kc:/")) return true;                  // knowledge cards
+      if (a.startsWith("videos:") || a.startsWith("images:")) return true;
+    }
+    if (card.closest("[aria-label*='more results'], [aria-label*='More results']")) return true;
 
+    // People-also-ask FAQ excerpts (not full results)
+    if (card.closest("[data-qaqa], [data-lpage], [data-pfidx]")) return true;
+    if (card.querySelector("[data-qaqa]")) return true;
+
+    // Wrappers that contain nested result cards (the card itself
+    // is a container, not a leaf result)
     const nestedResults = card.querySelectorAll(".g, article");
-    if (nestedResults.length > 3) return true;
+    if (nestedResults.length > 2) return true;
 
     return false;
   }
@@ -284,7 +314,14 @@
     // click handlers attached higher up the tree (Google Analytics,
     // instant-navigation, etc. all listen on document/window).
     badge.addEventListener("pointerdown", (e) => {
+      // Bail if the click was on the dismiss button OR the
+      // "How this works" methodology link. Both have their own
+      // handlers; if we let the badge toggle here, those
+      // handlers would never fire (and the pill would close
+      // when the user clicks the methodology link).
       if (e.target.closest(".hz-ai-dismiss")) return;
+      if (e.target.closest(".hz-panel-method-link")) return;
+      if (e.target.closest(".hz-btn-human, .hz-btn-ai")) return;
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
