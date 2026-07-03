@@ -158,6 +158,28 @@
     return String(s).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c);
   }
 
+  // Track currently open panel for click-outside-to-close
+  let activePanel = null;
+  let activeBadge = null;
+
+  function closeAllPanels() {
+    document.querySelectorAll(".hz-ai-panel.hz-visible").forEach(p => {
+      p.classList.remove("hz-visible");
+    });
+    document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach(b => {
+      b.classList.remove("hz-expanded");
+    });
+    activePanel = null;
+    activeBadge = null;
+  }
+
+  // Click outside to close
+  document.addEventListener("click", (e) => {
+    if (activePanel && !e.target.closest(".hz-ai-badge") && !e.target.closest(".hz-ai-panel")) {
+      closeAllPanels();
+    }
+  });
+
   function injectBadge(card, score, hostname) {
     // Remove old badge if any
     const old = card.querySelector(".hz-ai-badge");
@@ -185,7 +207,7 @@
       card.insertBefore(badge, card.firstChild);
     }
 
-    // Click handler to toggle tooltip
+    // Click handler to toggle panel
     badge.addEventListener("click", (e) => {
       // Don't toggle if clicking dismiss button
       if (e.target.closest(".hz-ai-dismiss")) return;
@@ -193,18 +215,18 @@
       e.preventDefault();
       e.stopPropagation();
       
-      const tip = card.querySelector(".hz-ai-tooltip");
-      if (tip) {
-        // Toggle visibility
-        const isVisible = tip.classList.contains("hz-visible");
+      const panel = card.querySelector(".hz-ai-panel");
+      if (panel) {
+        const isVisible = panel.classList.contains("hz-visible");
         
-        // Hide all other tooltips first
-        document.querySelectorAll(".hz-ai-tooltip.hz-visible").forEach(t => {
-          t.classList.remove("hz-visible");
-        });
+        // Close all other panels first
+        closeAllPanels();
         
         if (!isVisible) {
-          tip.classList.add("hz-visible");
+          panel.classList.add("hz-visible");
+          badge.classList.add("hz-expanded");
+          activePanel = panel;
+          activeBadge = badge;
         }
       }
     });
@@ -215,8 +237,8 @@
       e.stopPropagation();
       badge.remove();
       card.classList.remove("hz-ai-border", "hz-ai-low", "hz-ai-med", "hz-ai-high");
-      const tip = card.querySelector(".hz-ai-tooltip");
-      if (tip) tip.remove();
+      const panel = card.querySelector(".hz-ai-panel");
+      if (panel) panel.remove();
       prefs.aiDismissed = prefs.aiDismissed || {};
       prefs.aiDismissed[hostname] = true;
       try {
@@ -249,13 +271,13 @@
     return null;
   }
 
-  function injectTooltip(card, score, hostname) {
-    const old = card.querySelector(".hz-ai-tooltip");
+  function injectPanel(card, score, hostname) {
+    const old = card.querySelector(".hz-ai-panel");
     if (old) old.remove();
 
     const band = bandFor(score.overall);
-    const tip = document.createElement("div");
-    tip.className = "hz-ai-tooltip";
+    const panel = document.createElement("div");
+    panel.className = "hz-ai-panel";
     
     // Build reasons text
     const reasonsText = score.reasons.length > 0 
@@ -268,7 +290,7 @@
       ? `<div class="hz-user-mark">You marked this as: <strong>${userMark === 'human' ? 'Human' : 'AI'}</strong></div>`
       : '';
     
-    tip.innerHTML = `
+    panel.innerHTML = `
       <strong>AI Signal: ${score.overall}% · ${bandLabel(band)}</strong>
       <div class="hz-reasons">${reasonsText}</div>
       ${userMarkText}
@@ -284,19 +306,19 @@
     `;
     
     // Add feedback button handlers
-    tip.querySelector(".hz-mark-human")?.addEventListener("click", (e) => {
+    panel.querySelector(".hz-mark-human")?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       markDomain(hostname, "human");
     });
-    tip.querySelector(".hz-mark-ai")?.addEventListener("click", (e) => {
+    panel.querySelector(".hz-mark-ai")?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       markDomain(hostname, "ai");
     });
     
     // Add trust check handler
-    tip.querySelector(".hz-check-trust")?.addEventListener("click", (e) => {
+    panel.querySelector(".hz-check-trust")?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
       const btn = e.target;
@@ -305,14 +327,14 @@
       
       // Simulate external check (replace with real API call in future)
       setTimeout(() => {
-        const result = tip.querySelector(".hz-trust-result");
-        result.innerHTML = `<br><em>External trust APIs require API keys.<br>Coming soon: VirusTotal, WOT integration.</em>`;
+        const result = panel.querySelector(".hz-trust-result");
+        result.innerHTML = `<em>External trust APIs require API keys.<br>Coming soon: VirusTotal, WOT integration.</em>`;
         btn.textContent = "🔍 Check Trust Score";
         btn.disabled = false;
       }, 500);
     });
     
-    card.appendChild(tip);
+    card.appendChild(panel);
   }
 
   function markDomain(hostname, mark) {
@@ -322,15 +344,15 @@
       chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
     } catch (err) { /* no-op */ }
     
-    // Update all badges for this domain
+    // Update all panels for this domain
     document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
-      const tip = c.querySelector(".hz-ai-tooltip");
-      if (tip) {
-        const markDiv = tip.querySelector(".hz-user-mark");
+      const panel = c.querySelector(".hz-ai-panel");
+      if (panel) {
+        const markDiv = panel.querySelector(".hz-user-mark");
         if (markDiv) {
           markDiv.innerHTML = `You marked this as: <strong>${mark === 'human' ? 'Human' : 'AI'}</strong>`;
         } else {
-          const reasonsDiv = tip.querySelector(".hz-reasons");
+          const reasonsDiv = panel.querySelector(".hz-reasons");
           if (reasonsDiv) {
             const newMark = document.createElement("div");
             newMark.className = "hz-user-mark";
@@ -408,7 +430,7 @@
     const band = bandFor(score.overall);
     card.classList.add("hz-ai-border", "hz-ai-" + band);
     injectBadge(card, score, data.hostname);
-    injectTooltip(card, score, data.hostname);
+    injectPanel(card, score, data.hostname);
 
     // Hide-above threshold
     if (prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {
