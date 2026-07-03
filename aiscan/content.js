@@ -5,7 +5,7 @@
 (function () {
   "use strict";
   
-  const STORAGE_KEY = "hz";  // Same key as tab.js uses
+  const STORAGE_KEY = "***";
   
   // Check if we're on a search page
   const hostname = location.hostname || "";
@@ -14,11 +14,8 @@
   const isBrave = hostname.includes("search.brave.");
   
   if (!isGoogle && !isDuckDuckGo && !isBrave) {
-    console.log("[AI Signal] Not a search page, skipping");
     return;
   }
-
-  console.log("[AI Signal] Loaded on", hostname);
 
   // Default prefs
   let prefs = {
@@ -33,23 +30,15 @@
   function loadPrefs() {
     try {
       chrome.storage.sync.get([STORAGE_KEY], (data) => {
-        console.log("[AI Signal] Raw storage data:", data);
         const stored = (data && data[STORAGE_KEY]) || {};
-        console.log("[AI Signal] Stored prefs:", stored);
         prefs = { ...prefs, ...stored };
-        console.log("[AI Signal] Merged prefs:", prefs);
-        console.log("[AI Signal] aiSignal =", prefs.aiSignal);
-        
-        // Always init - if aiSignal is false, badges just won't show
         init();
       });
     } catch (e) {
-      console.log("[AI Signal] Storage error, using defaults:", e);
       init();
     }
   }
 
-  // Extract hostname from URL
   function extractHostname(href) {
     try {
       return new URL(href).hostname.replace(/^www\./, "");
@@ -58,7 +47,6 @@
     }
   }
 
-  // Get band from percentage
   function bandFor(pct) {
     if (pct < 35) return "low";
     if (pct < 65) return "med";
@@ -69,7 +57,6 @@
     return band === "low" ? "Human-like" : band === "med" ? "Mixed" : "Likely AI";
   }
 
-  // Escape HTML
   function escapeHtml(s) {
     const div = document.createElement("div");
     div.textContent = s;
@@ -82,48 +69,29 @@
     const seen = new Set();
     
     if (isGoogle) {
-      // Modern Google uses various structures - try multiple approaches
-      // Approach 1: Look for h3 elements (titles) and get their parent containers
-      const titles = document.querySelectorAll("#search h3, #rso h3");
+      // Find all h3 elements in search results and get their containers
+      const titles = document.querySelectorAll("#search h3, #rso h3, #center_col h3");
+      
       titles.forEach(title => {
-        // Find the nearest parent that looks like a result
+        // Walk up to find the result container
         let card = title.closest("div[data-sokoban-container]") || 
                    title.closest(".g") ||
                    title.closest("[data-ved]") ||
-                   title.parentElement;
+                   title.parentElement?.parentElement;
         
         if (!card || seen.has(card)) return;
         seen.add(card);
         
-        // Skip if already processed
         if (card.dataset.hzDone) return;
         
-        // Must have a link
+        // Must have a real link
         const link = card.querySelector("a[href^='http']");
         if (!link) return;
         
         results.push(card);
       });
-      
-      // Approach 2: Direct link approach - find all result links
-      if (results.length === 0) {
-        const links = document.querySelectorAll("#search a[href^='http'], #rso a[href^='http']");
-        links.forEach(link => {
-          const card = link.closest("div") || link.parentElement;
-          if (!card || seen.has(card)) return;
-          seen.add(card);
-          
-          if (card.dataset.hzDone) return;
-          
-          const title = card.querySelector("h3");
-          if (!title) return;
-          
-          results.push(card);
-        });
-      }
     }
     
-    console.log("[AI Signal] findResults found:", results.length, "cards");
     return results;
   }
 
@@ -138,7 +106,6 @@
     const url = link.getAttribute("href");
     const hostname = extractHostname(url);
     
-    // Skip if dismissed
     if (prefs.aiDismissed && prefs.aiDismissed[hostname]) return null;
     
     return {
@@ -163,12 +130,12 @@
       <button class="hz-ai-dismiss" title="Hide for this domain">✕</button>
     `;
     
-    // Click to expand
-    badge.addEventListener("click", (e) => {
+    // Click to expand - use mousedown to intercept before link click
+    badge.addEventListener("mousedown", (e) => {
       if (e.target.closest(".hz-ai-dismiss")) return;
+      e.preventDefault();
       e.stopPropagation();
       
-      // Close others
       document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach(b => {
         if (b !== badge) b.classList.remove("hz-expanded");
       });
@@ -177,7 +144,8 @@
     });
     
     // Dismiss
-    badge.querySelector(".hz-ai-dismiss").addEventListener("click", (e) => {
+    badge.querySelector(".hz-ai-dismiss").addEventListener("mousedown", (e) => {
+      e.preventDefault();
       e.stopPropagation();
       badge.remove();
       prefs.aiDismissed = prefs.aiDismissed || {};
@@ -213,7 +181,6 @@
       <div class="hz-panel-foot">Heuristic estimate</div>
     `;
     
-    // Mark buttons
     panel.querySelectorAll(".hz-btn").forEach(btn => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -224,7 +191,6 @@
           chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
         } catch (err) {}
         
-        // Show feedback
         const foot = panel.querySelector(".hz-panel-foot");
         foot.textContent = `Marked as ${mark === 'human' ? 'Human' : 'AI'}`;
         foot.style.color = mark === 'human' ? '#22c55e' : '#ef4444';
@@ -242,32 +208,24 @@
     const data = extractData(card);
     if (!data) return;
     
-    // Score the content
     const text = [data.title, data.snippet].filter(Boolean).join(" ");
     let score;
     try {
       score = AIScore.score(text, { url: data.url });
     } catch (e) {
-      console.log("[AI Signal] Scoring error:", e);
       return;
     }
     
-    console.log("[AI Signal] Scored:", data.hostname, score.overall + "%");
-    
-    // Add visual border
-    const band = bandFor(score.overall);
-    card.classList.add("hz-ai-border", `hz-ai-${band}`);
-    
-    // Create and inject badge
+    // Create badge and inject AFTER the title (not inside it)
     const badge = createBadge(score, data.hostname);
-    const titleEl = card.querySelector("h3");
-    if (titleEl) {
-      titleEl.appendChild(badge);
-    }
-    
-    // Create and inject panel (inside badge)
     const panel = createPanel(score, data.hostname);
     badge.appendChild(panel);
+    
+    // Insert badge after the h3, not inside it
+    const titleEl = card.querySelector("h3");
+    if (titleEl && titleEl.parentElement) {
+      titleEl.parentElement.insertBefore(badge, titleEl.nextSibling);
+    }
     
     // Apply hide threshold
     if (prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {
@@ -277,19 +235,14 @@
 
   // Process all results
   function processAll() {
-    if (!prefs.aiSignal) {
-      console.log("[AI Signal] Feature disabled, skipping");
-      return;
-    }
+    if (!prefs.aiSignal) return;
     
     const cards = findResults();
-    console.log("[AI Signal] Found", cards.length, "results");
-    
     cards.forEach(processCard);
   }
 
   // Click outside to close expanded badges
-  document.addEventListener("click", (e) => {
+  document.addEventListener("mousedown", (e) => {
     if (!e.target.closest(".hz-ai-badge")) {
       document.querySelectorAll(".hz-ai-badge.hz-expanded").forEach(b => {
         b.classList.remove("hz-expanded");
@@ -308,11 +261,8 @@
       for (const m of mutations) {
         if (m.addedNodes && m.addedNodes.length) {
           for (const n of m.addedNodes) {
-            if (n.nodeType === 1) {
-              // Check if it's a result or contains results
-              if (n.matches && (n.matches("#rso > div") || n.querySelector("h3"))) {
-                shouldRescan = true;
-              }
+            if (n.nodeType === 1 && n.querySelector && n.querySelector("h3")) {
+              shouldRescan = true;
             }
           }
         }
@@ -328,11 +278,8 @@
 
   // Initialize
   function init() {
-    console.log("[AI Signal] Initializing...");
     processAll();
     startObserver();
-    
-    // Rescan after a delay (for dynamic content)
     setTimeout(processAll, 1000);
     setTimeout(processAll, 3000);
   }

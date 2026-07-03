@@ -1,34 +1,13 @@
 /* ════════════════════════════════════════════════════════════════════
-   Horizon AI Signal — Badge & Panel Styles (iOS-inspired)
+   Horizon AI Signal — Badge & Panel Styles
    ════════════════════════════════════════════════════════════════════ */
 
-/* ── 1. Result card border ───────────────────────────────── */
-
-.hz-ai-border {
-  position: relative;
-}
-
-.hz-ai-border::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  transition: background 0.3s ease;
-}
-
-.hz-ai-low::before  { background: #22c55e; }
-.hz-ai-med::before  { background: #f59e0b; }
-.hz-ai-high::before { background: #ef4444; }
-
-/* ── 2. Badge (compact pill) ─────────────────────────────── */
+/* ── 1. Badge (compact pill) ─────────────────────────────── */
 
 .hz-ai-badge {
-  display: inline-inline-flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 11px;
   font-weight: 600;
@@ -38,16 +17,14 @@
   cursor: pointer;
   position: relative;
   vertical-align: middle;
+  user-select: none;
+  -webkit-user-select: none;
   
-  /* iOS-style transitions */
-  transition: 
-    all 0.35s cubic-bezier(0.32, 0.72, 0.24, 1);
-  
-  /* Prevent layout shift */
-  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0.24, 1);
   overflow: hidden;
   max-width: 70px;
   max-height: 22px;
+  z-index: 1;
 }
 
 /* Color bands */
@@ -64,14 +41,12 @@
   color: #dc2626; 
 }
 
-/* Hover effect */
 .hz-ai-badge:hover {
-  transform: scale(1.08);
+  transform: scale(1.05);
 }
 
 .hz-ai-badge:active {
-  transform: scale(0.92);
-  transition-duration: 0.1s;
+  transform: scale(0.95);
 }
 
 /* Dot */
@@ -85,11 +60,6 @@
 .hz-ai-badge[data-band="low"]  .hz-ai-dot { background: #22c55e; }
 .hz-ai-badge[data-band="med"]  .hz-ai-dot { background: #f59e0b; }
 .hz-ai-badge[data-band="high"] .hz-ai-dot { background: #ef4444; }
-
-/* Percentage text */
-.hz-ai-pct {
-  font-variant-numeric: tabular-nums;
-}
 
 /* Dismiss button */
 .hz-ai-dismiss {
@@ -107,7 +77,7 @@
   cursor: pointer;
   font-size: 10px;
   border-radius: 50%;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .hz-ai-dismiss:hover {
@@ -115,36 +85,33 @@
   background: rgba(0,0,0,0.08);
 }
 
-/* ── 3. Expanded badge (shows panel) ────────────────────── */
+/* ── 2. Expanded badge ──────────────────────────────────── */
 
 .hz-ai-badge.hz-expanded {
   max-width: 260px;
   max-height: 400px;
   padding: 14px;
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(28, 28, 30, 0.95) !important;
   color: #f5f5f7 !important;
-  box-shadow: 
-    0 4px 24px rgba(0,0,0,0.15),
-    0 16px 48px rgba(0,0,0,0.2);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  backdrop-filter: blur(20px);
   z-index: 2147483647;
 }
 
-/* Hide dot and percentage when expanded */
+/* Hide compact elements when expanded */
 .hz-ai-badge.hz-expanded .hz-ai-dot,
 .hz-ai-badge.hz-expanded .hz-ai-pct,
 .hz-ai-badge.hz-expanded .hz-ai-dismiss {
   display: none;
 }
 
-/* ── 4. Panel (inside expanded badge) ───────────────────── */
+/* ── 3. Panel (inside expanded badge) ───────────────────── */
 
 .hz-ai-panel {
   display: none;
   width: 100%;
-  animation: hzPanelIn 0.3s cubic-bezier(0.32, 0.72, 0.24, 1) 0.05s both;
+  animation: hzPanelIn 0.25s ease 0.05s both;
 }
 
 .hz-ai-badge.hz-expanded .hz-ai-panel {
@@ -154,7 +121,7 @@
 @keyframes hzPanelIn {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -243,7 +210,7 @@
   border-top: 1px solid rgba(255,255,255,0.08);
 }
 
-/* ── 5. Collapsed result ────────────────────────────────── */
+/* ── 4. Collapsed result ────────────────────────────────── */
 
 .hz-ai-collapsed {
   opacity: 0.3;
@@ -256,7 +223,7 @@
   filter: none;
 }
 
-/* ── 6. In-page detector ────────────────────────────────── */
+/* ── 5. In-page detector ────────────────────────────────── */
 
 .hz-page-detector {
   position: fixed;
