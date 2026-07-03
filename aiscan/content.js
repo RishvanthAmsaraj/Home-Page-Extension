@@ -28,13 +28,18 @@
 
   // Load prefs from storage
   function loadPrefs() {
+    console.log("[AI Signal] Loading prefs...");
     try {
       chrome.storage.sync.get([STORAGE_KEY], (data) => {
+        console.log("[AI Signal] Storage data:", data);
         const stored = (data && data[STORAGE_KEY]) || {};
+        console.log("[AI Signal] Stored:", stored);
         prefs = { ...prefs, ...stored };
+        console.log("[AI Signal] Prefs:", prefs);
         init();
       });
     } catch (e) {
+      console.log("[AI Signal] Storage error:", e);
       init();
     }
   }
@@ -71,13 +76,18 @@
     if (isGoogle) {
       // Find all h3 elements in search results and get their containers
       const titles = document.querySelectorAll("#search h3, #rso h3, #center_col h3");
+      console.log("[AI Signal] Found", titles.length, "h3 titles");
       
-      titles.forEach(title => {
+      titles.forEach((title, i) => {
         // Walk up to find the result container
         let card = title.closest("div[data-sokoban-container]") || 
                    title.closest(".g") ||
-                   title.closest("[data-ved]") ||
-                   title.parentElement?.parentElement;
+                   title.closest("[data-ved]");
+        
+        // Fallback: use parent if no match
+        if (!card && title.parentElement) {
+          card = title.parentElement.closest("div[data-sokoban-container], .g, [data-ved]") || title.parentElement;
+        }
         
         if (!card || seen.has(card)) return;
         seen.add(card);
@@ -92,6 +102,7 @@
       });
     }
     
+    console.log("[AI Signal] Returning", results.length, "results");
     return results;
   }
 
@@ -278,6 +289,7 @@
 
   // Initialize
   function init() {
+    console.log("[AI Signal] init() called, aiSignal:", prefs.aiSignal);
     processAll();
     startObserver();
     setTimeout(processAll, 1000);
