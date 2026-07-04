@@ -82,8 +82,8 @@
     border-radius .58s cubic-bezier(.32, .72, 0, 1),
     background   .3s ease;
   overflow: hidden;
-  max-width: 65px;
-  max-height: 22px;
+  max-width: 78px;
+  max-height: 24px;
   z-index: 1;
 }
 
@@ -377,8 +377,8 @@
     border-radius .58s cubic-bezier(.32, .72, 0, 1),
     box-shadow   .3s ease;
   overflow: hidden;
-  max-width: 140px;                /* was 200px */
-  max-height: 26px;                /* was 32px */
+  max-width: 160px;                /* bumped from 140px to avoid % cutoff */
+  max-height: 28px;                /* bumped from 26px to avoid cutoff */
 }
 
 .hz-page-detector-badge:hover {
@@ -443,6 +443,14 @@
 }
 
 /* Compact header row — hide dot/score/label when expanded */
+.hz-detector-header-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  width: 100%;
+}
+
 .hz-page-detector.hz-expanded .hz-detector-header-row {
   display: none;
 }

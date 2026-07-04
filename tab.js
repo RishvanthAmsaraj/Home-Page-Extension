@@ -89,12 +89,12 @@ const TYPE_PARAMS={all:"",reddit:" site:reddit.com",article:"&tbm=nws",pdf:" fil
 const TYPE_L={all:"All",reddit:"Reddit",article:"News",pdf:"PDF",video:"Video",images:"Images"};
 
 const DL=[
-  {id:"l1",label:"ChatGPT",url:"https://chatgpt.com",emoji:"🤖",image:""},
-  {id:"l2",label:"GitHub",url:"https://github.com",emoji:"💻",image:""},
-  {id:"l3",label:"Calendar",url:"https://calendar.google.com",emoji:"📅",image:""},
-  {id:"l4",label:"Mail",url:"https://mail.google.com",emoji:"📧",image:""},
-  {id:"l5",label:"Canvas",url:"https://canvas.psu.edu",emoji:"📚",image:""},
-  {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
+  {id:"l1",label:"ChatGPT",url:"https://chatgpt.com",emoji:"",image:"https://www.google.com/s2/favicons?domain=chatgpt.com&sz=64"},
+  {id:"l2",label:"GitHub",url:"https://github.com",emoji:"",image:"https://www.google.com/s2/favicons?domain=github.com&sz=64"},
+  {id:"l3",label:"Calendar",url:"https://calendar.google.com",emoji:"",image:"https://www.google.com/s2/favicons?domain=google.com&sz=64"},
+  {id:"l4",label:"Mail",url:"https://mail.google.com",emoji:"",image:"https://www.google.com/s2/favicons?domain=google.com&sz=64"},
+  {id:"l5",label:"Canvas",url:"https://canvas.psu.edu",emoji:"",image:"https://www.google.com/s2/favicons?domain=psu.edu&sz=64"},
+  {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"",image:"https://www.google.com/s2/favicons?domain=openclaw.ai&sz=64"}
 ];
 
 const DS={
@@ -475,9 +475,9 @@ function renderSettings(){
   document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{btn.addEventListener("click",()=>{if(state.bg)clearBg();applyTheme(btn.dataset.theme);renderSettings()})});
   document.querySelectorAll("#settingsBody .engine-btn[data-engine]").forEach(btn=>{btn.addEventListener("click",()=>{state.searchEngine=btn.dataset.engine;renderSettings();saveState();refreshUI()})});
   document.querySelectorAll("#settingsBody .engine-btn[data-ai]").forEach(btn=>{btn.addEventListener("click",()=>{state.aiProvider=btn.dataset.ai;renderSettings();saveState();refreshUI()})});
-  document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{const idx=parseInt(ed.dataset.idx);const save=()=>{state.links[idx]={...state.links[idx],emoji:ed.querySelector(".le-emoji").value||"🌐",label:ed.querySelector(".le-label").value||"Link",url:ed.querySelector(".le-url").value||"https://example.com",image:ed.querySelector(".le-img").value||""};saveState();renderLinks()};ed.querySelector(".le-emoji")?.addEventListener("input",save);ed.querySelector(".le-label")?.addEventListener("input",save);ed.querySelector(".le-url")?.addEventListener("input",save);ed.querySelector(".le-img")?.addEventListener("input",save);ed.querySelector(".link-remove")?.addEventListener("click",()=>{state.links.splice(idx,1);saveState();renderLinks();renderSettings()})});
+  document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{const idx=parseInt(ed.dataset.idx);const save=()=>{const newUrl=ed.querySelector(".le-url").value||"https://example.com";const newImg=ed.querySelector(".le-img").value||"";state.links[idx]={...state.links[idx],emoji:ed.querySelector(".le-emoji").value||"🌐",label:ed.querySelector(".le-label").value||"Link",url:newUrl,image:newImg||`https://www.google.com/s2/favicons?domain=${new URL(newUrl).hostname}&sz=64`};saveState();renderLinks()};ed.querySelector(".le-emoji")?.addEventListener("input",save);ed.querySelector(".le-label")?.addEventListener("input",save);ed.querySelector(".le-url")?.addEventListener("input",save);ed.querySelector(".le-img")?.addEventListener("input",save);ed.querySelector(".link-remove")?.addEventListener("click",()=>{state.links.splice(idx,1);saveState();renderLinks();renderSettings()})});
   document.getElementById("toggleLinksBtn")?.addEventListener("click",()=>{state.showLinks=!state.showLinks;saveState();renderLinks();renderSettings()});
-  document.getElementById("addLinkBtn")?.addEventListener("click",()=>{state.links.push({id:`lc${linkId++}`,label:"New Link",url:"https://example.com",emoji:"🌐",image:""});saveState();renderLinks();renderSettings();document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight});
+  document.getElementById("addLinkBtn")?.addEventListener("click",()=>{const newUrl = "https://example.com"; const newDomain = (new URL(newUrl)).hostname; state.links.push({id:`lc${linkId++}`,label:"New Link",url:newUrl,emoji:"",image:`https://www.google.com/s2/favicons?domain=${newDomain}&sz=64`});saveState();renderLinks();renderSettings();document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight});
   document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
   document.getElementById("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings()});
 
@@ -527,6 +527,106 @@ document.addEventListener("keydown",e=>{
   }
   if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
   if(e.key==="Escape"&&isDrawerOpen())closeDrawer();
+
+  // Arrow navigation in the drawer grid
+  if(isDrawerOpen()&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
+    e.preventDefault();
+    const btns=[...document.querySelectorAll(".drawer-btn")];
+    const tabs=[...document.querySelectorAll(".drawer-tab")];
+    const active=document.activeElement;
+    const activeIdx=btns.indexOf(active);
+    const tabIdx=tabs.indexOf(active);
+
+    if(active&&activeIdx>=0){
+      // Currently on a grid button
+      const perRow=Math.max(1,Math.floor((document.querySelector(":root").offsetWidth-80)/145));
+      const col=activeIdx%perRow;
+      const isFirstCol=col===0;
+      const isLastCol=col===perRow-1||activeIdx===btns.length-1;
+      // ArrowLeft from first column → switch to previous tab
+      if(e.key==="ArrowLeft"&&isFirstCol){
+        const tabs2=[...document.querySelectorAll(".drawer-tab")];
+        const activeTab=document.querySelector(".drawer-tab.active");
+        const tIdx=tabs2.indexOf(activeTab);
+        if(tIdx>0){
+          tabs2[tIdx-1].click();
+          requestAnimationFrame(()=>{
+            const nt=[...document.querySelectorAll(".drawer-tab")];
+            if(nt[tIdx-1])nt[tIdx-1].focus();
+          });
+          return;
+        }
+      }
+      // ArrowRight from last column → switch to next tab
+      if(e.key==="ArrowRight"&&isLastCol){
+        const tabs2=[...document.querySelectorAll(".drawer-tab")];
+        const activeTab=document.querySelector(".drawer-tab.active");
+        const tIdx=tabs2.indexOf(activeTab);
+        if(tIdx<tabs2.length-1){
+          tabs2[tIdx+1].click();
+          requestAnimationFrame(()=>{
+            const nt=[...document.querySelectorAll(".drawer-tab")];
+            if(nt[tIdx+1])nt[tIdx+1].focus();
+          });
+          return;
+        }
+      }
+      // Normal grid navigation
+      if(e.key==="ArrowRight"&&activeIdx<btns.length-1){
+        btns[activeIdx+1].focus();
+      }else if(e.key==="ArrowLeft"&&activeIdx>0){
+        btns[activeIdx-1].focus();
+      }else if(e.key==="ArrowDown"&&activeIdx+perRow<btns.length){
+        btns[activeIdx+perRow].focus();
+      }else if(e.key==="ArrowUp"){
+        if(activeIdx-perRow>=0){
+          btns[activeIdx-perRow].focus();
+        }else{
+          // Jump to active tab
+          const activeTab2=document.querySelector(".drawer-tab.active");
+          if(activeTab2)activeTab2.focus();
+        }
+      }
+    }else if(active&&tabIdx>=0){
+      // Currently on a tab
+      if(e.key==="ArrowRight"&&tabIdx<tabs.length-1){
+        tabs[tabIdx+1].click();
+        // After click the drawer re-renders, so re-query the new tab by index
+        requestAnimationFrame(()=>{
+          const newTabs=[...document.querySelectorAll(".drawer-tab")];
+          if(newTabs[tabIdx+1])newTabs[tabIdx+1].focus();
+        });
+      }else if(e.key==="ArrowLeft"&&tabIdx>0){
+        tabs[tabIdx-1].click();
+        requestAnimationFrame(()=>{
+          const newTabs=[...document.querySelectorAll(".drawer-tab")];
+          if(newTabs[tabIdx-1])newTabs[tabIdx-1].focus();
+        });
+      }else if(e.key==="ArrowUp"||e.key==="ArrowDown"){
+        // Jump to first engine of current tab
+        const tab=active.dataset.mode;
+        const firstBtn=btns.find(b=>b.dataset.kind===tab);
+        if(firstBtn)firstBtn.focus();
+        else if(btns.length>0)btns[0].focus();
+      }
+    }else if(active===document.getElementById("searchInput")){
+      // From input: ArrowDown to tabs, ArrowRight/Left to switch tab
+      if(e.key==="ArrowDown"){
+        const activeTab=document.querySelector(".drawer-tab.active");
+        if(activeTab)activeTab.focus();
+      }else if(e.key==="ArrowRight"){
+        const activeTab=document.querySelector(".drawer-tab.active");
+        const tabs2=[...document.querySelectorAll(".drawer-tab")];
+        const nextTab=tabs2[(tabs2.indexOf(activeTab)+1)%tabs2.length];
+        if(nextTab){nextTab.click();requestAnimationFrame(()=>{const nt=[...document.querySelectorAll(".drawer-tab")];if(nt[(tabs2.indexOf(activeTab)+1)%nt.length])nt[(tabs2.indexOf(activeTab)+1)%nt.length].focus();});}
+      }else if(e.key==="ArrowLeft"){
+        const activeTab=document.querySelector(".drawer-tab.active");
+        const tabs2=[...document.querySelectorAll(".drawer-tab")];
+        const prevTab=tabs2[(tabs2.indexOf(activeTab)-1+tabs2.length)%tabs2.length];
+        if(prevTab){prevTab.click();requestAnimationFrame(()=>{const nt=[...document.querySelectorAll(".drawer-tab")];if(nt[(tabs2.indexOf(activeTab)-1+nt.length)%nt.length])nt[(tabs2.indexOf(activeTab)-1+nt.length)%nt.length].focus();});}
+      }
+    }
+  }
 });
 
 /* ══════════════════════════════════════════════════

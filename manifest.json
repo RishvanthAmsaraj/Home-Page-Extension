@@ -20,7 +20,7 @@
     {
       "matches": [
         "*://*.google.com/search*",
-        "*://duckduckgo.com/*",
+        "*://*.duckduckgo.com/*",
         "*://search.brave.com/search*",
     "*://safebrowsing.googleapis.com/*"
       ],
@@ -32,7 +32,7 @@
       "matches": ["<all_urls>"],
       "exclude_matches": [
         "*://*.google.com/search*",
-        "*://duckduckgo.com/*",
+        "*://*.duckduckgo.com/*",
         "*://search.brave.com/search*",
     "*://safebrowsing.googleapis.com/*"
       ],
