@@ -24,39 +24,24 @@
       <span class="weather-hilo" id="weatherHiLo">H --° L --°</span>
     </section>
 
-    <section class="search-section" id="searchSection">
-      <form id="searchForm" autocomplete="off">
-        <div class="search-row">
-          <span class="mode-tag" id="modeTag">⬡ Google</span>
-          <input type="text" id="searchInput" placeholder="Search..." autofocus spellcheck="false" autocomplete="off" />
-          <span class="search-arrow" id="searchArrow">▼</span>
+    <section class="search-bar" id="searchBar" role="search" aria-label="Search">
+      <form id="searchForm" class="search-form" autocomplete="off" onsubmit="return false">
+        <div class="search-input-row">
+          <button type="button" class="mode-chip" id="modeChip" aria-label="Change search engine">
+            <span class="mode-chip-icon" id="modeChipIcon"></span>
+            <span class="mode-chip-label" id="modeChipLabel">Google</span>
+          </button>
+          <input type="text" id="searchInput" class="search-input" placeholder="Search the web or ask an AI..." spellcheck="false" autocomplete="off" aria-label="Search query" />
+          <button type="button" class="search-toggle" id="searchToggle" aria-label="Show search options" aria-expanded="false">
+            <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </form>
-      <!-- v3.1 Recent-searches dropdown. Hidden by default; shown
-           when the input has focus AND is empty AND we have history.
-           We position it just below the row so the visual flow
-           reads "type here → previous searches". -->
-      <div class="search-history" id="searchHistory" aria-hidden="true">
-        <div class="search-history-head">
-          <span>Recent</span>
-          <button type="button" class="search-history-clear" id="searchHistoryClear">Clear all</button>
-        </div>
-        <ul class="search-history-list" id="searchHistoryList"></ul>
-      </div>
-      <div class="search-body" id="searchBody">
-        <div class="search-drawer" id="searchDrawer">
-          <div class="drawer-section">
-            <div class="drawer-tabbar" id="drawerTabbar">
-              <button class="drawer-tab active" data-mode="web">Web Search</button>
-              <button class="drawer-tab" data-mode="ai">AI Chat</button>
-            </div>
-            <div class="drawer-grid" id="drawerGrid"></div>
-          </div>
-          <div class="drawer-footer" id="drawerFooter">
-            <div class="filter-bar" id="filterBar"></div>
-            <p class="ai-hint" id="aiModeHint"></p>
-          </div>
-        </div>
+      <div class="search-panel" id="searchPanel" aria-hidden="true">
+        <div class="search-panel-tabs" id="searchPanelTabs" role="tablist"></div>
+        <div class="search-panel-recent" id="searchPanelRecent"></div>
+        <div class="search-panel-grid" id="searchPanelGrid"></div>
+        <div class="search-panel-footer" id="searchPanelFooter"></div>
       </div>
     </section>
 

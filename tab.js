@@ -256,121 +256,164 @@ function currentIcon(){return isAI()?"🤖":"🌐"}
 function svgIcon(key){return LOGOS[key]||LOGOS.google}
 
 /* ── Tag + drawer open/close ── */
-function updateModeTag(){
-  const tag=document.getElementById("modeTag");
-  const icon = isAI() ? svgIcon(state.aiProvider)
-                      : svgIcon(state.searchEngine);
-  const label = isAI() ? AI_L[state.aiProvider]
-                       : state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
-  // Wrap label in a span so the compact (icon-only) state can fade
-  // the label out independently of the icon.
-  tag.innerHTML = icon + ' <span class="mode-label">' + label + '</span>';
-}
-function tagOnInput(){
-  const i=document.getElementById("searchInput");
-  // Compact the chip to icon-only while typing so the input gets more
-  // room without losing the brand indicator entirely.
-  document.getElementById("modeTag").classList.toggle("compact",i.value.length>0);
+function updateModeChip(){
+  const icon = document.getElementById('modeChipIcon');
+  const label = document.getElementById('modeChipLabel');
+  const chip = document.getElementById('modeChip');
+  const input = document.getElementById('searchInput');
+  if (!icon || !label || !chip || !input) return;
+  if (isAI()) {
+    icon.innerHTML = svgIcon(state.aiProvider);
+    label.textContent = AI_L[state.aiProvider] || state.aiProvider;
+  } else {
+    icon.innerHTML = svgIcon(state.searchEngine);
+    label.textContent = state.searchEngine.charAt(0).toUpperCase() + state.searchEngine.slice(1);
+  }
+  chip.classList.toggle('compact', input.value.length > 0);
 }
 
-function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
-function openDrawer(){
-  const sec = document.getElementById("searchSection");
-  sec.classList.add("open");
-  sec.setAttribute("aria-expanded", "true");
-  // Save which element had focus so closeDrawer() can restore it.
-  const inp = document.getElementById("searchInput");
-  _drawerReturnFocus = (document.activeElement && document.activeElement !== document.body)
-    ? document.activeElement
-    : inp;
-  // Close the recent-searches dropdown so the user isn't looking
-  // at two overlapping panels — the drawer is the active surface.
-  try { closeSearchHistory(); } catch (_) {}
+function isSearchExpanded(){
+  const bar = document.getElementById('searchBar');
+  return !!(bar && bar.classList.contains('expanded'));
 }
-function closeDrawer(){
-  const sec=document.getElementById("searchSection");
-  sec.classList.remove("open");
-  sec.setAttribute("aria-expanded","false");
-  sec.style.marginBottom=""; // restore resting margin (1rem from CSS)
-  // Restore focus to the element that had it before we opened,
-  // if that element is still in the DOM and focusable.
-  if (_drawerReturnFocus && document.contains(_drawerReturnFocus)) {
-    try { _drawerReturnFocus.focus({ preventScroll: true }); } catch (_) {}
+
+function expandSearch(){
+  const bar = document.getElementById('searchBar');
+  if (!bar || bar.classList.contains('expanded')) return;
+  bar.classList.add('expanded');
+  const toggle = document.getElementById('searchToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  const panel = document.getElementById('searchPanel');
+  if (panel) panel.setAttribute('aria-hidden', 'false');
+  // Render the panel content (only on first expand)
+  renderSearchPanel();
+}
+
+let _suppressExpandOnFocus = false;
+function collapseSearch(){
+  const bar = document.getElementById('searchBar');
+  if (!bar || !bar.classList.contains('expanded')) return;
+  bar.classList.remove('expanded');
+  const toggle = document.getElementById('searchToggle');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  const panel = document.getElementById('searchPanel');
+  if (panel) panel.setAttribute('aria-hidden', 'true');
+  // Refocus the input so the user can keep typing. Suppress the
+  // focus listener for one tick so it doesn't immediately re-expand.
+  const input = document.getElementById('searchInput');
+  if (input) {
+    _suppressExpandOnFocus = true;
+    input.focus({ preventScroll: true });
+    // Clear on the next frame so a real user-driven focus (clicking
+    // the input again from outside) still expands.
+    requestAnimationFrame(() => { _suppressExpandOnFocus = false; });
   }
-  _drawerReturnFocus = null;
 }
-function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
+
+function toggleSearch(){
+  isSearchExpanded() ? collapseSearch() : expandSearch();
+}
+
 
 /* ── Tab bar ── */
-function renderTabs(){
-  const bar=document.getElementById("drawerTabbar");
-  bar.innerHTML='<button class="drawer-tab'+(isAI()?'':' active')+'" data-mode="web">Web Search</button><button class="drawer-tab'+(isAI()?' active':'')+'" data-mode="ai">AI Chat</button>';
-  bar.querySelectorAll(".drawer-tab").forEach(tab=>{
-    tab.addEventListener("click",e=>{
+function renderSearchTabs(){
+  const bar = document.getElementById('searchPanelTabs');
+  if (!bar) return;
+  bar.innerHTML =
+    '<button type="button" class="search-panel-tab'+(isAI()?'':' active')+'" data-mode="web" role="tab" aria-selected="'+(isAI()?'false':'true')+'">Web Search</button>'+
+    '<button type="button" class="search-panel-tab'+(isAI()?' active':'')+'" data-mode="ai" role="tab" aria-selected="'+(isAI()?'true':'false')+'">AI Chat</button>';
+  bar.querySelectorAll('.search-panel-tab').forEach(tab => {
+    tab.addEventListener('click', e => {
       e.stopPropagation();
-      const mode=tab.dataset.mode;
-      if(mode==="web"&&isAI()){state.searchType="all";refreshUI()}
-      else if(mode==="ai"&&!isAI()){state.searchType="ai";refreshUI()}
+      const mode = tab.dataset.mode;
+      if (mode === 'web' && isAI()) state.searchType = 'all';
+      else if (mode === 'ai' && !isAI()) state.searchType = 'ai';
+      else return;
+      renderSearchPanel();
+      saveState();
     });
   });
 }
 
-/* ── Render drawer grid ──
-     In AI mode the grid uses the .ai-grid modifier so the 6 providers
-     render as 4-on-top, 2-on-bottom (centered under cols 2-3).
-     The 8 web search engines keep the auto-fill column layout. */
-function renderDrawer(){
-  renderTabs();
-  const grid=document.getElementById("drawerGrid");
-  const ai=isAI();
-  const items=ai?AI_ORDER.map(k=>[k,AI_L[k],"ai",AI_AUTO.has(k)?"→ auto":"✎ prefill"]):Object.keys(SE).map(k=>[k,k.charAt(0).toUpperCase()+k.slice(1),"web","web"]);
-  grid.classList.toggle("ai-grid",ai);
-  grid.innerHTML=items.map(([key,label,kind,tag])=>{
-    const act=(kind==="web"&&!ai&&state.searchEngine===key)||(kind==="ai"&&ai&&state.aiProvider===key);
-    return `<button class="drawer-btn${act?" active":""}" data-kind="${kind}" data-key="${key}"><span class="db-svg">${svgIcon(key)}</span><span class="db-name">${label}</span><span class="db-tag">${tag}</span></button>`;
-  }).join("");
+function renderSearchGrid(){
+  const grid = document.getElementById('searchPanelGrid');
+  if (!grid) return;
+  const ai = isAI();
+  const items = ai
+    ? AI_ORDER.map(k => ({ key: k, label: AI_L[k], kind: 'ai', tag: AI_AUTO.has(k) ? 'auto' : 'prefill' }))
+    : Object.keys(SE).map(k => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1), kind: 'web', tag: 'web' }));
+  grid.classList.toggle('ai-grid', ai);
+  grid.innerHTML = items.map(({ key, label, kind, tag }) => {
+    const active = (kind === 'web' && !ai && state.searchEngine === key) ||
+                   (kind === 'ai' && ai && state.aiProvider === key);
+    return '<button type="button" class="engine-btn'+(active?' active':'')+'" data-kind="'+kind+'" data-key="'+key+'" role="tab" aria-selected="'+active+'">'+
+      '<span class="engine-btn-icon">'+svgIcon(key)+'</span>'+
+      '<span class="engine-btn-name">'+label+'</span>'+
+      '<span class="engine-btn-tag">'+tag+'</span>'+
+    '</button>';
+  }).join('');
 
-  grid.querySelectorAll(".drawer-btn").forEach(btn=>{
-    btn.addEventListener("click",e=>{
+  grid.querySelectorAll('.engine-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
       e.stopPropagation();
-      const kind=btn.dataset.kind,key=btn.dataset.key;
-      if(kind==="web"){state.searchEngine=key;state.searchType="all";}
-      else{state.aiProvider=key;state.searchType="ai";}
-      // Remember which key was clicked so we can re-focus the
-      // matching button AFTER refreshUI() tears down this DOM
-      // and rebuilds it. Without this, focus would die and
-      // arrow keys would no longer navigate the grid — the
-      // user would have to press '/' again to get back in.
-      e.currentTarget.dataset.hzRememberFocus = "1";
-      refreshUI();
-      // Re-focus the freshly-rendered active button so arrow
-      // keys keep working without re-opening the drawer.
-      const fresh = document.querySelector(`.drawer-btn[data-key="${key}"][data-kind="${kind}"]`);
-      if (fresh) fresh.focus();
+      const { kind, key } = btn.dataset;
+      if (kind === 'web') { state.searchEngine = key; state.searchType = 'all'; }
+      else { state.aiProvider = key; state.searchType = 'ai'; }
+      renderSearchPanel();
+      updateModeChip();
+      updatePlaceholder();
+      saveState();
+      setTimeout(() => collapseSearch(), 280);
     });
   });
 }
 
-/* ── Filter bar + AI hint (inside drawer) ── */
-function renderFilterBar(){
-  const bar=document.getElementById("filterBar");
-  const hint=document.getElementById("aiModeHint");
-  if(isAI()){
-    bar.classList.remove("visible");
-    const ap=state.aiProvider;const auto=AI_AUTO.has(ap);
-    hint.textContent=auto?"Opens directly to your query results":"Prefills the chat input — press Enter to send";
-    hint.classList.add("active");
-    return;
+function renderSearchFooter(){
+  const footer = document.getElementById('searchPanelFooter');
+  if (!footer) return;
+  if (isAI()) {
+    const ap = state.aiProvider;
+    const auto = AI_AUTO.has(ap);
+    footer.innerHTML =
+      '<div class="search-panel-hint">'+
+        (auto ? 'Opens directly to your query results'
+              : 'Prefills the chat input — press Enter to send')+
+      '</div>';
+  } else {
+    footer.innerHTML =
+      '<div class="search-panel-filters">'+
+        Object.keys(TYPE_PARAMS).map(k =>
+          '<button type="button" class="search-panel-filter-chip'+(state.searchType===k?' active':'')+'" data-filter="'+k+'">'+TYPE_L[k]+'</button>'
+        ).join('') +
+        '<button type="button" class="search-panel-filter-chip search-panel-filter-chip--aifree'+(state.aiFreeOn?' active':'')+'" id="aiFreeChip">AI-Free</button>'+
+      '</div>';
+    footer.querySelectorAll('.search-panel-filter-chip[data-filter]').forEach(chip => {
+      chip.addEventListener('click', e => {
+        e.stopPropagation();
+        state.searchType = chip.dataset.filter;
+        renderSearchPanel();
+        saveState();
+        updatePlaceholder();
+      });
+    });
+    const aiChip = document.getElementById('aiFreeChip');
+    if (aiChip) aiChip.addEventListener('click', e => {
+      e.stopPropagation();
+      state.aiFreeOn = !state.aiFreeOn;
+      renderSearchPanel();
+      saveState();
+      updatePlaceholder();
+    });
   }
-  hint.classList.remove("active");
-  bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
-    `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
-  bar.classList.add("visible");
-  bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
-    chip.addEventListener("click",e=>{e.stopPropagation();state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
-  });
-  document.getElementById("aiFreeChip")?.addEventListener("click",e=>{e.stopPropagation();state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
 }
+
+function renderSearchPanel(){
+  renderSearchTabs();
+  renderSearchRecent();
+  renderSearchGrid();
+  renderSearchFooter();
+}
+
 
 function updatePlaceholder(){
   const i=document.getElementById("searchInput");
@@ -383,7 +426,7 @@ function updatePlaceholder(){
 }
 
 function refreshUI(){
-  updateModeTag();renderDrawer();renderFilterBar();updatePlaceholder();saveState();
+  updateModeChip();renderSearchPanel();updatePlaceholder();saveState();
 }
 
 /* ── Submit ── */
@@ -401,21 +444,23 @@ function submitSearch(q){
   let url=state.aiFreeOn?aiFreeURL(base,query,state.searchEngine):base+encodeURIComponent(query);
   window.location.href=url;
 }
-/* ── Recent-searches dropdown ──
-   Stored in chrome.storage.local (separate from prefs.sync so the
-   quota isn't an issue). Max 12 entries, dedupe by query string,
-   newest first. The dropdown shows when the input is focused AND
-   empty AND we have entries. Up/Down arrow keys move within the
-   list; Enter submits the highlighted one; Escape just closes. */
+/* ── Recent-searches (lives INSIDE the search panel)
+   No separate dropdown. The recent row shows up at the top of
+   the expanded panel, above the engine grid. The flow:
+     - Hydrate from localStorage synchronously (so the panel has
+       entries on first open).
+     - Hydrate from chrome.storage.local in the background.
+     - renderSearchRecent() draws into #searchPanelRecent. */
 const HISTORY_KEY = "hzHistory";
 const HISTORY_MAX = 12;
-let searchHistory = []; // [{ q, t }]
+let searchHistory = [];
 
-/* Synchronous bootstrap loader. The page is auto-focused on
-   load, so we need history entries ready BEFORE the first focus
-   event fires — otherwise the dropdown shows nothing the first
-   time. We read localStorage synchronously here, then chrome's
-   async storage overwrites once it returns. */
+/* Hydrate the recent-searches list.
+   Synchronous bootstrap reads from localStorage so the panel has
+   entries on first open (the page is auto-focused on load and the
+   panel may render before chrome.storage.local has resolved). Then
+   chrome.storage.local is queried async; if it has fresher data
+   (e.g. synced from another device), we re-render. */
 function _loadSearchHistorySync(){
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
@@ -427,116 +472,56 @@ function _loadSearchHistorySync(){
   return [];
 }
 async function loadSearchHistory(){
-  // Start with whatever localStorage had (sync, instant)
   searchHistory = _loadSearchHistorySync();
-  // Then asynchronously hydrate from chrome.storage.local and
-  // prefer that if it has data.
   try {
     const r = await chrome.storage.local.get([HISTORY_KEY]);
     if (Array.isArray(r[HISTORY_KEY])) {
       searchHistory = r[HISTORY_KEY];
-      // Mirror to localStorage so the next sync read is fresh
       try { localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory)); } catch {}
     }
   } catch {}
 }
-async function saveSearchHistory(){
-  const trimmed = searchHistory.slice(0, HISTORY_MAX);
-  try { await chrome.storage.local.set({ [HISTORY_KEY]: trimmed }); }
-  catch {
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed)); } catch {}
-  }
-}
-async function recordSearch(q){
-  q = (q || '').trim();
-  if (!q) return;
-  // Dedupe case-insensitively; bump the existing entry to the top.
-  searchHistory = [
-    { q, t: Date.now() },
-    ...searchHistory.filter(e => e.q.toLowerCase() !== q.toLowerCase()),
-  ].slice(0, HISTORY_MAX);
-  await saveSearchHistory();
-}
-async function deleteSearchEntry(q){
-  searchHistory = searchHistory.filter(e => e.q !== q);
-  await saveSearchHistory();
-  renderSearchHistory();
-}
-async function clearSearchHistory(){
-  searchHistory = [];
-  await saveSearchHistory();
-  renderSearchHistory();
-}
 
-/* Render the dropdown. Called whenever the visible state might
-   have changed (focus, input, after mutation). */
-function renderSearchHistory(){
-  const list = document.getElementById('searchHistoryList');
-  if (!list) return;
-  list.innerHTML = searchHistory.map(e => `
-    <li class="search-history-item" data-q="${escapeAttr(e.q)}" tabindex="0">
-      <span class="search-history-q">${escapeHtml(e.q)}</span>
-      <button type="button" class="search-history-x" aria-label="Remove">×</button>
-    </li>
-  `).join('');
-
-  // Bind clicks + remove buttons
-  list.querySelectorAll('.search-history-item').forEach(li => {
-    li.addEventListener('click', (ev) => {
-      // If the user clicked the small × button, remove the entry
-      // and don't submit.
-      if (ev.target.closest('.search-history-x')) {
-        ev.stopPropagation();
-        deleteSearchEntry(li.dataset.q);
+function renderSearchRecent(){
+  const container = document.getElementById('searchPanelRecent');
+  if (!container) return;
+  if (!searchHistory.length) { container.innerHTML = ''; return; }
+  container.innerHTML =
+    '<div class="search-panel-recent-header">'+
+      '<span>Recent</span>'+
+      '<button type="button" class="search-panel-recent-clear" id="searchPanelRecentClear">Clear all</button>'+
+    '</div>'+
+    '<ul class="search-panel-recent-list">'+
+      searchHistory.slice(0, 6).map(e =>
+        '<li><button type="button" class="search-panel-recent-item" data-q="'+escapeAttr(e.q)+'">'+
+          '<span class="search-panel-recent-q">'+escapeHtml(e.q)+'</span>'+
+          '<span class="search-panel-recent-x" aria-label="Remove">×</span>'+
+        '</button></li>'
+      ).join('')+
+    '</ul>';
+  container.querySelectorAll('.search-panel-recent-item').forEach(btn => {
+    btn.addEventListener('click', e => {
+      if (e.target.closest('.search-panel-recent-x')) {
+        e.stopPropagation();
+        deleteSearchEntry(btn.dataset.q);
         return;
       }
-      const inp = document.getElementById('searchInput');
-      inp.value = li.dataset.q;
-      closeSearchHistory();
-      submitSearch(inp.value);
+      const input = document.getElementById('searchInput');
+      if (input) {
+        input.value = btn.dataset.q;
+        collapseSearch();
+        submitSearch(input.value.trim());
+      }
     });
+  });
+  document.getElementById('searchPanelRecentClear')?.addEventListener('click', e => {
+    e.stopPropagation();
+    clearSearchHistory();
+    renderSearchPanel();
   });
 }
 
-/* Show / hide. Just toggle the .open class — the CSS handles
-   the max-height + opacity + padding transition. No more
-   [hidden] attribute, no more forced reflows, no more setTimeout
-   for after-transition cleanup. */
-function openSearchHistory(){
-  const el = document.getElementById('searchHistory');
-  if (!el) return;
-  if (!searchHistory.length) return; // nothing to show
-  el.classList.add('open');
-}
-function closeSearchHistory(){
-  const el = document.getElementById('searchHistory');
-  if (!el) return;
-  el.classList.remove('open');
-}
-
-/* Up/Down arrow nav within the open dropdown. We track the active
-   descendant via a class. */
-function moveHistoryActive(delta){
-  const list = document.getElementById('searchHistoryList');
-  if (!list) return;
-  const items = Array.from(list.querySelectorAll('.search-history-item'));
-  if (!items.length) return;
-  let i = items.findIndex(el => el.classList.contains('active'));
-  if (i < 0) i = delta > 0 ? -1 : items.length;
-  i = (i + delta + items.length) % items.length;
-  items.forEach(el => el.classList.remove('active'));
-  items[i].classList.add('active');
-  items[i].scrollIntoView({ block: 'nearest' });
-  items[i].focus();
-}
-function activeHistoryQ(){
-  const list = document.getElementById('searchHistoryList');
-  if (!list) return null;
-  const active = list.querySelector('.search-history-item.active');
-  return active ? active.dataset.q : null;
-}
-
-/* ── small HTML-escape helpers used in renderSearchHistory above */
+/* ── Small HTML-escape helpers used everywhere */
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => (
     { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
@@ -544,17 +529,9 @@ function escapeHtml(s){
 }
 function escapeAttr(s){ return escapeHtml(s); }
 
-
-
-/* ══════════════════════════════════════════════════
-   SETTINGS
-   ══════════════════════════════════════════════════ */
-function openSettings(){document.getElementById("settingsPanel").classList.add("open");document.getElementById("settingsBackdrop").classList.add("open");renderSettings()}
-function closeSettings(){document.getElementById("settingsPanel").classList.remove("open");document.getElementById("settingsBackdrop").classList.remove("open")}
-
-/* ── Methodology modal — shown when the user taps the "methodology"
-     link in the AI Signal section of settings. We open a lightweight
-     modal on top of the settings panel with full disclosure. */
+/* ── Methodology modal — shown when the user taps the
+   "methodology" link in the AI Signal section of settings.
+   In-page modal that explains the heuristic with full disclosure. */
 function showMethodology(){
   let modal=document.getElementById("aiMethodologyModal");
   if(!modal){
@@ -565,34 +542,40 @@ function showMethodology(){
       <div class="ai-methodology-card">
         <div class="ai-methodology-head">
           <h3>How AI Signal works</h3>
-          <button type="button" id="aiMethodologyClose" aria-label="Close">✕</button>
+          <button class="ai-methodology-close" id="aiMethodologyClose">✕</button>
         </div>
         <div class="ai-methodology-body">
-          <p><strong>What it is.</strong> A client-side "smell test" for AI-flavored writing. Every score is an <em>estimate</em>, not a verdict.</p>
-          <p><strong>What it looks at.</strong> Each search result's title and snippet (the text Google / DuckDuckGo / Brave already shows you), plus the URL shape. We never fetch the article body — your browsing history stays yours.</p>
-          <p><strong>Three signals, combined.</strong></p>
+          <p><strong>The honest reality.</strong> No client-side detector is reliable. Heuristics are a useful first-pass “smell test” but should never be treated as a definitive verdict.</p>
+          <h4>What we look at</h4>
           <ul>
-            <li><strong>Text patterns</strong> (65% weight) — weighted lexicon of 30+ AI-isms ("delve into", "navigate the complexities", "in today's digital landscape", "it's important to note", etc.), plus sentence-length uniformity and em-dash density.</li>
-            <li><strong>Author / byline</strong> (15% weight) — looks for named humans ("By Jane Smith") in the snippet; penalizes self-disclosure ("AI-generated").</li>
-            <li><strong>Domain signals</strong> (20% weight) — URL shape (TLD, hyphen slug, date-stamped path), with a small whitelist of known human-publication outlets (NYT, Atlantic, Wired, etc.) that override the score downward.</li>
+            <li><strong>Sentence-length uniformity.</strong> AI prose has very consistent sentence lengths; humans are burstier.</li>
+            <li><strong>Em-dash + transition density.</strong> AI leans on — plus words like <em>Furthermore</em>, <em>Moreover</em>, <em>Additionally</em>.</li>
+            <li><strong>Vocabulary distribution.</strong> Phrases like <em>delve into</em>, <em>comprehensive guide</em>, <em>actionable insights</em>, <em>digital landscape</em> are flag-weighted.</li>
+            <li><strong>Author / byline signal.</strong> Self-disclosure (“as an AI”) or missing byline tips the score up.</li>
+            <li><strong>Domain signal.</strong> URL shape + a small whitelist of known publications.</li>
           </ul>
-          <p><strong>Calibration.</strong> Three sensitivities — Low (only obvious cases, multiplier 0.55), Medium (default, 1.0), High (sensitive, 1.35). The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.</p>
-          <p><strong>Hide-above mode.</strong> When you set a hide threshold, results meeting/exceeding that score collapse to a single hover-to-expand line. We don't delete them from the DOM (that would break SERP pagination). Hover any collapsed result to expand it for that moment.</p>
-          <p><strong>Per-result dismissal.</strong> Every badge has a "✕" that hides it for that domain. Your dismissed domains persist in chrome.storage.sync and never show the badge again.</p>
-          <p><strong>What it will NOT do.</strong> It will not catch lightly-edited AI text. It will not catch a human who happens to write in a corporate / listicle style. It will not give you a definitive "this is AI" answer. Anyone who tells you they can do that from a browser extension is lying.</p>
-          <p class="ai-methodology-foot">Score is computed locally. No page is fetched, no data is sent off-device. The whole module adds ~15KB to the extension.</p>
+          <h4>What it can’t do</h4>
+          <ul>
+            <li>False positives on formal human prose (legal briefs, dense academic writing).</li>
+            <li>Lightly-edited AI text will usually pass.</li>
+            <li>No detection of AI images, AI audio, or AI video.</li>
+          </ul>
+          <p class="ai-methodology-foot">Score thresholds: low &lt;35 · medium 35–65 · high &gt;65. Defaults tuned to under-flag at medium sensitivity.</p>
         </div>
       </div>`;
     document.body.appendChild(modal);
-    document.getElementById("aiMethodologyClose").addEventListener("click",()=>{
-      modal.classList.remove("open");
-    });
-    modal.addEventListener("click",(e)=>{
-      if(e.target===modal)modal.classList.remove("open");
+    modal.addEventListener("click",e=>{
+      if(e.target===modal||e.target.closest("#aiMethodologyClose")){
+        modal.remove();
+      }
     });
   }
-  modal.classList.add("open");
 }
+
+
+function openSettings(){document.getElementById("settingsPanel").classList.add("open");document.getElementById("settingsBackdrop").classList.add("open");renderSettings();}
+function closeSettings(){document.getElementById("settingsPanel").classList.remove("open");document.getElementById("settingsBackdrop").classList.remove("open");}
+
 function renderSettings(){
   const gi=Math.round((state.glassOpacity||.04)*100);
   document.getElementById("settingsTitle").textContent="Horizon Settings";
@@ -772,7 +755,7 @@ document.getElementById("bgUpload").addEventListener("change",e=>{
                         captures Escape and stops it bubbling.
    Cmd/Ctrl + ,         open settings  (chrome standard shortcut)
    Up/Down/Left/Right   navigate the drawer grid (see below) */
-let _drawerReturnFocus = null;
+
 
 function isTypingTarget(el){
   if (!el) return false;
@@ -795,8 +778,8 @@ document.addEventListener("keydown",e=>{
       e.preventDefault(); e.stopPropagation();
       return;
     }
-    if (isDrawerOpen()) {
-      closeDrawer();
+    if (isSearchExpanded()) {
+      collapseSearch();
       e.preventDefault(); e.stopPropagation();
       return;
     }
@@ -853,24 +836,48 @@ document.addEventListener("keydown",e=>{
   fetchWeather();setInterval(fetchWeather,1800000);
   renderLinks();
 
-  /* ── Search: click row toggles drawer, focus opens it ── */
-  const sec=document.getElementById("searchSection");
+  /* ── Search bar (v2.2.0 single-pill architecture) ──
+     The bar is one cohesive pill that has chrome at all times.
+     Focus expands the panel inside the pill. Outside clicks
+     collapse it. No more separate drawer below. */
   const input=document.getElementById("searchInput");
 
-  // Clicking the search row (anywhere outside input) toggles drawer
-  document.querySelector(".search-row").addEventListener("click",e=>{
-    if(e.target===input||input.contains(e.target)){openDrawer();return}
-    toggleDrawer();
-    if(isDrawerOpen())input.focus();
+  // Mode chip click: toggle panel + focus input
+  document.getElementById("modeChip")?.addEventListener("click",()=>{
+    if (isSearchExpanded()) {
+      collapseSearch();
+    } else {
+      expandSearch();
+    }
+    document.getElementById("searchInput")?.focus({ preventScroll: true });
   });
-  input.addEventListener("focus",openDrawer);
-  input.addEventListener("input",tagOnInput);
+  // Chevron click: toggle panel
+  document.getElementById("searchToggle")?.addEventListener("click",(e)=>{
+    e.stopPropagation();
+    toggleSearch();
+    document.getElementById("searchInput")?.focus({ preventScroll: true });
+  });
+  // Input focus: expand panel. We use a flag to suppress the
+  // re-expand when collapseSearch() programmatically refocuses
+  // the input as part of the close animation.
+  input.addEventListener("focus", () => {
+    if (_suppressExpandOnFocus) return;
+    expandSearch();
+  });
+  // Compact the mode chip while the user is typing
+  input.addEventListener("input", updateModeChip);
 
-  // Close drawer on outside click — ignore clicks *inside* the drawer
-  document.addEventListener("click",e=>{
-    if(isDrawerOpen()&&!sec.contains(e.target)){
-      // Only close if not clicking inside the search-section
-      closeDrawer();
+  // Close panel on outside pointerdown. We use pointerdown (not
+  // click) so it fires BEFORE focus shifts away from the input.
+  // collapseSearch() refocuses the input — if we listened on
+  // 'click', the click would fire AFTER focus had moved to the
+  // target, and the document handler wouldn't see the bar as
+  // containing the original input. pointerdown is the right
+  // primitive for "I clicked outside the bar".
+  document.addEventListener("pointerdown",e=>{
+    const bar = document.getElementById("searchBar");
+    if (isSearchExpanded() && bar && !bar.contains(e.target)) {
+      collapseSearch();
     }
   });
 
@@ -878,41 +885,28 @@ document.addEventListener("keydown",e=>{
   document.getElementById("searchForm").addEventListener("submit",e=>{
     e.preventDefault();
     const v = input.value.trim();
-    if (v) { recordSearch(v); closeSearchHistory(); }
+    if (v) { recordSearch(v); }
     submitSearch(v);
   });
 
-  /* v3.2 — Recent-searches wiring.
-     Hydrate history synchronously first (so the initial auto-focus
-     finds entries even before chrome.storage resolves), then
-     start the async chrome.storage hydrate in the background. */
+  /* v3.3 — Recent-searches now live inside the search panel
+     (not a separate dropdown). We hydrate them synchronously so
+     the panel's recent row shows entries on first open. */
   searchHistory = _loadSearchHistorySync();
-  renderSearchHistory();
-  // Fire-and-forget: chrome.storage will overwrite + re-render if
-  // it had fresher data (e.g. synced from another device).
-  loadSearchHistory().then(() => renderSearchHistory());
-  // If the input is already focused (autofocus), open history now.
-  // The autofocus event may have fired before the focus listener
-  // was registered, so we trigger the open manually here.
-  setTimeout(() => {
-    if (document.activeElement === input && !input.value.length && !isDrawerOpen()) {
-      openSearchHistory();
-    }
-  }, 0);
+  loadSearchHistory().then(() => {
+    renderSearchRecent();
+    renderSearchPanel();
+  });
   input.addEventListener("focus", () => {
-    if (!input.value.length) openSearchHistory();
   });
   input.addEventListener("blur", () => {
     // Delay so click on a history item can fire first.
     setTimeout(() => {
       const hist = document.getElementById('searchHistory');
       if (!hist) return;
-      if (!hist.contains(document.activeElement)) closeSearchHistory();
     }, 120);
   });
   input.addEventListener("input", () => {
-    if (input.value.length) closeSearchHistory();
-    else openSearchHistory();
   });
   document.getElementById("searchHistoryClear")?.addEventListener("click", clearSearchHistory);
 
@@ -920,27 +914,12 @@ document.addEventListener("keydown",e=>{
      Up/Down move the active descendant, Enter submits it.
      We intercept BEFORE the drawer-grid handler so the input
      context wins. */
-  input.addEventListener("keydown", (e) => {
-    if (!document.getElementById('searchHistory')?.classList.contains('open')) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); moveHistoryActive(1); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); moveHistoryActive(-1); }
-    else if (e.key === 'Enter') {
-      const q = activeHistoryQ();
-      if (q) {
-        e.preventDefault();
-        input.value = q;
-        recordSearch(q);
-        closeSearchHistory();
-        submitSearch(q);
-      }
-    } else if (e.key === 'Escape') {
-      // First Escape closes the dropdown only, leaves drawer open.
-      closeSearchHistory();
-      e.stopPropagation();
-    }
-  });
+  // Arrow keys from the input are handled by the unified arrow-nav
+  // handler installed later in boot. (The panel is part of the same
+  // DOM tree so focus flows naturally.)
 
-  renderDrawer();refreshUI();
+
+  renderSearchPanel();refreshUI();
 
   // Settings
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
@@ -948,113 +927,117 @@ document.addEventListener("keydown",e=>{
   document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
 })();
 
-/* ── Arrow-key navigation in the drawer engine/AI grid.
-   When the drawer is open and a drawer-btn has focus, arrow keys
-   move focus to neighbours. Left/Right move within the current
-   row; Up/Down move by column count. Home/End jump to ends.
-   Disabled when the drawer is closed or focus is elsewhere. */
-(function setupDrawerArrowNav(){
+/* ── Unified arrow-key navigation (v2.2.0)
+   Single flow:
+     input  ↓  first tab  ↓  first engine
+     engine ↑  tab (or input if at top row)
+   Left/Right on tabs switches the active tab.
+   Left/Right/Up/Down on the engine grid does 2D nav within it.
+   Escape is handled by the global keyboard handler. */
+(function setupArrowNav(){
   function colCount(grid){
-    const cs = grid && getComputedStyle(grid);
-    if (!cs) return 1;
+    if (!grid) return 1;
+    if (grid.classList.contains('ai-grid')) return 4;
+    const cs = getComputedStyle(grid);
     const m = cs.gridTemplateColumns && cs.gridTemplateColumns.match(/repeat\((\d+)/);
     if (m) return parseInt(m[1], 10) || 1;
-    if (grid.classList.contains('ai-grid')) return 4;
     const w = grid.clientWidth;
-    return Math.max(1, Math.floor(w / 100));
+    return Math.max(1, Math.floor(w / 130));
   }
   document.addEventListener('keydown', (e) => {
-    if (!isDrawerOpen()) return;
     const t = e.target;
     if (!t) return;
+    const input = t.id === 'searchInput';
+    const tab = t.closest && t.closest('.search-panel-tab');
+    const btn = t.closest && t.closest('.engine-btn');
+    const recent = t.closest && t.closest('.search-panel-recent-item');
+    if (!input && !tab && !btn && !recent) return;
 
-    // Tab bar: Left/Right (and Up/Down) switch Web Search <-> AI Chat.
-    const tab = t.closest && t.closest('.drawer-tab');
+    // ── Tabs ── Left/Right switches, Up returns to input
     if (tab) {
-      const tabs = Array.from(document.querySelectorAll('.drawer-tab'));
-      let targetMode = null;
+      const tabs = Array.from(document.querySelectorAll('.search-panel-tab'));
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        const i = tabs.indexOf(tab);
-        targetMode = tabs[(i + 1) % tabs.length].dataset.mode;
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        const i = tabs.indexOf(tab);
-        targetMode = (i === 0 ? tabs[tabs.length - 1] : tabs[i - 1]).dataset.mode;
-      } else {
+        if (e.key === 'ArrowDown') {
+          const firstEngine = document.querySelector('.search-panel-grid .engine-btn');
+          if (firstEngine) firstEngine.focus();
+        } else {
+          const i = tabs.indexOf(tab);
+          const target = tabs[(i + 1) % tabs.length];
+          target.click(); target.focus();
+        }
         return;
       }
-      // Click the target tab so refreshUI fires (and the grid
-      // below updates). After refreshUI, the old tab buttons are
-      // detached, so we re-query the DOM for the matching tab
-      // and focus it. Use a microtask so refreshUI completes.
-      const targetTab = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
-      if (targetTab) targetTab.click();
-      requestAnimationFrame(() => {
-        const fresh = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
-        if (fresh) fresh.focus();
-      });
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (e.key === 'ArrowUp') {
+          const inp = document.getElementById('searchInput');
+          if (inp) inp.focus({ preventScroll: true });
+        } else {
+          const i = tabs.indexOf(tab);
+          const target = i === 0 ? tabs[tabs.length - 1] : tabs[i - 1];
+          target.click(); target.focus();
+        }
+        return;
+      }
       return;
     }
 
-    const isInput = t.id === 'searchInput';
-
-    // From the search input: Up reaches the tab bar; Left/Right
-    // ALSO switches tabs (more discoverable than just Up).
-    if (isInput) {
-      if (e.key === 'ArrowUp') {
-        const activeTab = document.querySelector('.drawer-tab.active')
-          || document.querySelector('.drawer-tab');
-        if (activeTab) {
-          e.preventDefault();
-          activeTab.focus();
-          return;
-        }
+    // ── Engine buttons ── 2D nav + Up to tabs
+    if (btn) {
+      const grid = btn.closest('.search-panel-grid');
+      if (!grid) return;
+      const btns = Array.from(grid.querySelectorAll('.engine-btn'));
+      const idx = btns.indexOf(btn);
+      if (idx < 0) return;
+      const cols = colCount(grid);
+      let next = idx;
+      switch (e.key) {
+        case 'ArrowRight': next = (idx + 1) % btns.length; break;
+        case 'ArrowLeft':  next = (idx - 1 + btns.length) % btns.length; break;
+        case 'ArrowDown':  next = Math.min(btns.length - 1, idx + cols); break;
+        case 'ArrowUp':
+          if (idx - cols < 0) {
+            // At top row — jump back to active tab
+            e.preventDefault();
+            const activeTab = document.querySelector('.search-panel-tab.active');
+            if (activeTab) activeTab.focus();
+            return;
+          }
+          next = idx - cols;
+          break;
+        case 'Home':       next = 0; break;
+        case 'End':        next = btns.length - 1; break;
+        default: return;
       }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const tabs = Array.from(document.querySelectorAll('.drawer-tab'));
-        if (tabs.length) {
-          e.preventDefault();
-          const i = tabs.findIndex(x => x.classList.contains('active'));
-          const targetMode = (e.key === 'ArrowRight'
-            ? tabs[(i + 1) % tabs.length]
-            : tabs[(i - 1 + tabs.length) % tabs.length]
-          ).dataset.mode;
-          const targetTab = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
-          if (targetTab) targetTab.click();
-          requestAnimationFrame(() => {
-            const fresh = document.querySelector(`.drawer-tab[data-mode="${targetMode}"]`);
-            if (fresh) fresh.focus();
-          });
-          return;
-        }
-      }
+      e.preventDefault();
+      btns[next].focus();
+      return;
     }
 
-    // Grid navigation: drawer-btn OR input.
-    const btn = t.closest && t.closest('.drawer-btn');
-    if (!isInput && !btn) return;
-    const grid = (btn ? btn.closest('.drawer-grid') : document.getElementById('drawerGrid'));
-    if (!grid) return;
-    const btns = Array.from(grid.querySelectorAll('.drawer-btn'));
-    if (!btns.length) return;
-    let idx = btn ? btns.indexOf(btn) : -1;
-    if (idx < 0) {
-      const active = grid.querySelector('.drawer-btn.active');
-      idx = active ? btns.indexOf(active) : 0;
+    // ── Recent search item ── Down to engines, Up to tabs
+    if (recent) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const firstEngine = document.querySelector('.search-panel-grid .engine-btn');
+        if (firstEngine) firstEngine.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const activeTab = document.querySelector('.search-panel-tab.active');
+        if (activeTab) activeTab.focus();
+      }
+      return;
     }
-    const cols = colCount(grid);
-    let next = idx;
-    switch (e.key) {
-      case 'ArrowRight': next = (idx + 1) % btns.length; break;
-      case 'ArrowLeft':  next = (idx - 1 + btns.length) % btns.length; break;
-      case 'ArrowDown':  next = Math.min(btns.length - 1, idx + cols); break;
-      case 'ArrowUp':    next = Math.max(0, idx - cols); break;
-      case 'Home':       next = 0; break;
-      case 'End':        next = btns.length - 1; break;
-      default: return;
+
+    // ── Input ── Down moves to first tab
+    if (input) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const firstTab = document.querySelector('.search-panel-tab.active')
+          || document.querySelector('.search-panel-tab');
+        if (firstTab) firstTab.focus();
+      }
     }
-    e.preventDefault();
-    btns[next].focus();
   });
 })();
+
