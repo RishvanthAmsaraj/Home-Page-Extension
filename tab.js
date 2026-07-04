@@ -97,36 +97,12 @@ const DL=[
   {id:"l6",label:"OpenClaw",url:"https://openclaw.ai",emoji:"⚡",image:""}
 ];
 
-/* ── Schema versioning.
-   Bump SCHEMA_VERSION when the shape of state changes (new fields,
-   renamed fields, removed fields). On load, if the saved blob is
-   missing the version stamp (or has an older one), we run a
-   migration function that knows how to bring it forward. Old
-   fields are stripped; missing fields get defaults from DS. */
-const SCHEMA_VERSION = 1;
-
 const DS={
   theme:"slate",searchEngine:"google",aiProvider:"perplexity",
   links:DL,showLinks:true,glassOpacity:0.04,searchType:"all",
   customBg:"#0d0d0d",customAccent:"#7a8a9a",customLight:false,aiFreeOn:false,
   aiSignal:false,aiSensitivity:"med",aiHideAbove:0
 };
-
-/* Migrate a raw saved blob to the current schema. Returns a clean
-   state object. Each version step handles its own deltas — never
-   edit an old step, always ADD a new one. */
-function migrateState(raw){
-  let v = raw && typeof raw._v === "number" ? raw._v : 0;
-  if (v < 1) v = 1;
-  const clean = {};
-  for (const k of Object.keys(DS)) {
-    clean[k] = raw && Object.prototype.hasOwnProperty.call(raw, k)
-      ? raw[k]
-      : DS[k];
-  }
-  clean._v = SCHEMA_VERSION;
-  return clean;
-}
 let state={...DS},linkId=100;
 
 /* ── Storage ── */
@@ -135,18 +111,15 @@ const SYS="hz",BG_KEY="***";
 async function loadState(){
   try{
     const s=await chrome.storage.sync.get([SYS]);
-    if(s[SYS])state=migrateState(s[SYS]);
-  }catch{try{const s=localStorage.getItem(SYS);if(s)state=migrateState(JSON.parse(s))}catch{}}
+    if(s[SYS])state={...DS,...s[SYS],links:s[SYS].links||DL};
+  }catch{try{const s=localStorage.getItem(SYS);if(s)state={...DS,...JSON.parse(s),links:JSON.parse(s).links||DL}}catch{}}
   try{
     const b=await chrome.storage.local.get([BG_KEY]);
     if(b[BG_KEY])state.bg=b[BG_KEY];
   }catch{try{const b=localStorage.getItem(BG_KEY);if(b)state.bg=b}catch{}}
 }
 function saveState(){
-  /* _v is a schema stamp; we write it as the very first key so
-     load-time sees it immediately. loadState handles migration
-     if _v is missing or older. */
-  const o={_v:SCHEMA_VERSION,theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
+  const o={theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
     links:state.links,showLinks:state.showLinks,glassOpacity:state.glassOpacity,searchType:state.searchType,
     customBg:state.customBg,customAccent:state.customAccent,customLight:state.customLight,aiFreeOn:state.aiFreeOn,
     aiSignal:state.aiSignal,aiSensitivity:state.aiSensitivity,aiHideAbove:state.aiHideAbove};
@@ -256,164 +229,96 @@ function currentIcon(){return isAI()?"🤖":"🌐"}
 function svgIcon(key){return LOGOS[key]||LOGOS.google}
 
 /* ── Tag + drawer open/close ── */
-function updateModeChip(){
-  const icon = document.getElementById('modeChipIcon');
-  const label = document.getElementById('modeChipLabel');
-  const chip = document.getElementById('modeChip');
-  const input = document.getElementById('searchInput');
-  if (!icon || !label || !chip || !input) return;
-  if (isAI()) {
-    icon.innerHTML = svgIcon(state.aiProvider);
-    label.textContent = AI_L[state.aiProvider] || state.aiProvider;
-  } else {
-    icon.innerHTML = svgIcon(state.searchEngine);
-    label.textContent = state.searchEngine.charAt(0).toUpperCase() + state.searchEngine.slice(1);
-  }
-  chip.classList.toggle('compact', input.value.length > 0);
+function updateModeTag(){
+  const tag=document.getElementById("modeTag");
+  const icon = isAI() ? svgIcon(state.aiProvider)
+                      : svgIcon(state.searchEngine);
+  const label = isAI() ? AI_L[state.aiProvider]
+                       : state.searchEngine.charAt(0).toUpperCase()+state.searchEngine.slice(1);
+  // Wrap label in a span so the compact (icon-only) state can fade
+  // the label out independently of the icon.
+  tag.innerHTML = icon + ' <span class="mode-label">' + label + '</span>';
+}
+function tagOnInput(){
+  const i=document.getElementById("searchInput");
+  // Compact the chip to icon-only while typing so the input gets more
+  // room without losing the brand indicator entirely.
+  document.getElementById("modeTag").classList.toggle("compact",i.value.length>0);
 }
 
-function isSearchExpanded(){
-  const bar = document.getElementById('searchBar');
-  return !!(bar && bar.classList.contains('expanded'));
+function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
+function openDrawer(){
+  document.getElementById("searchSection").classList.add("open");
+  // Drawer expands absolutely below the search row.
+  // Links stay fixed — no layout push needed.
 }
-
-function expandSearch(){
-  const bar = document.getElementById('searchBar');
-  if (!bar || bar.classList.contains('expanded')) return;
-  bar.classList.add('expanded');
-  const toggle = document.getElementById('searchToggle');
-  if (toggle) toggle.setAttribute('aria-expanded', 'true');
-  const panel = document.getElementById('searchPanel');
-  if (panel) panel.setAttribute('aria-hidden', 'false');
-  // Render the panel content (only on first expand)
-  renderSearchPanel();
+function closeDrawer(){
+  const sec=document.getElementById("searchSection");
+  sec.classList.remove("open");
+  sec.style.marginBottom=""; // restore resting margin (1rem from CSS)
 }
-
-let _suppressExpandOnFocus = false;
-function collapseSearch(){
-  const bar = document.getElementById('searchBar');
-  if (!bar || !bar.classList.contains('expanded')) return;
-  bar.classList.remove('expanded');
-  const toggle = document.getElementById('searchToggle');
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
-  const panel = document.getElementById('searchPanel');
-  if (panel) panel.setAttribute('aria-hidden', 'true');
-  // Refocus the input so the user can keep typing. Suppress the
-  // focus listener for one tick so it doesn't immediately re-expand.
-  const input = document.getElementById('searchInput');
-  if (input) {
-    _suppressExpandOnFocus = true;
-    input.focus({ preventScroll: true });
-    // Clear on the next frame so a real user-driven focus (clicking
-    // the input again from outside) still expands.
-    requestAnimationFrame(() => { _suppressExpandOnFocus = false; });
-  }
-}
-
-function toggleSearch(){
-  isSearchExpanded() ? collapseSearch() : expandSearch();
-}
-
+function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
 
 /* ── Tab bar ── */
-function renderSearchTabs(){
-  const bar = document.getElementById('searchPanelTabs');
-  if (!bar) return;
-  bar.innerHTML =
-    '<button type="button" class="search-panel-tab'+(isAI()?'':' active')+'" data-mode="web" role="tab" aria-selected="'+(isAI()?'false':'true')+'">Web Search</button>'+
-    '<button type="button" class="search-panel-tab'+(isAI()?' active':'')+'" data-mode="ai" role="tab" aria-selected="'+(isAI()?'true':'false')+'">AI Chat</button>';
-  bar.querySelectorAll('.search-panel-tab').forEach(tab => {
-    tab.addEventListener('click', e => {
+function renderTabs(){
+  const bar=document.getElementById("drawerTabbar");
+  bar.innerHTML='<button class="drawer-tab'+(isAI()?'':' active')+'" data-mode="web">Web Search</button><button class="drawer-tab'+(isAI()?' active':'')+'" data-mode="ai">AI Chat</button>';
+  bar.querySelectorAll(".drawer-tab").forEach(tab=>{
+    tab.addEventListener("click",e=>{
       e.stopPropagation();
-      const mode = tab.dataset.mode;
-      if (mode === 'web' && isAI()) state.searchType = 'all';
-      else if (mode === 'ai' && !isAI()) state.searchType = 'ai';
-      else return;
-      renderSearchPanel();
-      saveState();
+      const mode=tab.dataset.mode;
+      if(mode==="web"&&isAI()){state.searchType="all";refreshUI()}
+      else if(mode==="ai"&&!isAI()){state.searchType="ai";refreshUI()}
     });
   });
 }
 
-function renderSearchGrid(){
-  const grid = document.getElementById('searchPanelGrid');
-  if (!grid) return;
-  const ai = isAI();
-  const items = ai
-    ? AI_ORDER.map(k => ({ key: k, label: AI_L[k], kind: 'ai', tag: AI_AUTO.has(k) ? 'auto' : 'prefill' }))
-    : Object.keys(SE).map(k => ({ key: k, label: k.charAt(0).toUpperCase() + k.slice(1), kind: 'web', tag: 'web' }));
-  grid.classList.toggle('ai-grid', ai);
-  grid.innerHTML = items.map(({ key, label, kind, tag }) => {
-    const active = (kind === 'web' && !ai && state.searchEngine === key) ||
-                   (kind === 'ai' && ai && state.aiProvider === key);
-    return '<button type="button" class="engine-btn'+(active?' active':'')+'" data-kind="'+kind+'" data-key="'+key+'" role="tab" aria-selected="'+active+'">'+
-      '<span class="engine-btn-icon">'+svgIcon(key)+'</span>'+
-      '<span class="engine-btn-name">'+label+'</span>'+
-      '<span class="engine-btn-tag">'+tag+'</span>'+
-    '</button>';
-  }).join('');
+/* ── Render drawer grid ──
+     In AI mode the grid uses the .ai-grid modifier so the 6 providers
+     render as 4-on-top, 2-on-bottom (centered under cols 2-3).
+     The 8 web search engines keep the auto-fill column layout. */
+function renderDrawer(){
+  renderTabs();
+  const grid=document.getElementById("drawerGrid");
+  const ai=isAI();
+  const items=ai?AI_ORDER.map(k=>[k,AI_L[k],"ai",AI_AUTO.has(k)?"→ auto":"✎ prefill"]):Object.keys(SE).map(k=>[k,k.charAt(0).toUpperCase()+k.slice(1),"web","web"]);
+  grid.classList.toggle("ai-grid",ai);
+  grid.innerHTML=items.map(([key,label,kind,tag])=>{
+    const act=(kind==="web"&&!ai&&state.searchEngine===key)||(kind==="ai"&&ai&&state.aiProvider===key);
+    return `<button class="drawer-btn${act?" active":""}" data-kind="${kind}" data-key="${key}"><span class="db-svg">${svgIcon(key)}</span><span class="db-name">${label}</span><span class="db-tag">${tag}</span></button>`;
+  }).join("");
 
-  grid.querySelectorAll('.engine-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
+  grid.querySelectorAll(".drawer-btn").forEach(btn=>{
+    btn.addEventListener("click",e=>{
       e.stopPropagation();
-      const { kind, key } = btn.dataset;
-      if (kind === 'web') { state.searchEngine = key; state.searchType = 'all'; }
-      else { state.aiProvider = key; state.searchType = 'ai'; }
-      renderSearchPanel();
-      updateModeChip();
-      updatePlaceholder();
-      saveState();
-      setTimeout(() => collapseSearch(), 280);
+      const kind=btn.dataset.kind,key=btn.dataset.key;
+      if(kind==="web"){state.searchEngine=key;state.searchType="all";}
+      else{state.aiProvider=key;state.searchType="ai";}
+      refreshUI();
     });
   });
 }
 
-function renderSearchFooter(){
-  const footer = document.getElementById('searchPanelFooter');
-  if (!footer) return;
-  if (isAI()) {
-    const ap = state.aiProvider;
-    const auto = AI_AUTO.has(ap);
-    footer.innerHTML =
-      '<div class="search-panel-hint">'+
-        (auto ? 'Opens directly to your query results'
-              : 'Prefills the chat input — press Enter to send')+
-      '</div>';
-  } else {
-    footer.innerHTML =
-      '<div class="search-panel-filters">'+
-        Object.keys(TYPE_PARAMS).map(k =>
-          '<button type="button" class="search-panel-filter-chip'+(state.searchType===k?' active':'')+'" data-filter="'+k+'">'+TYPE_L[k]+'</button>'
-        ).join('') +
-        '<button type="button" class="search-panel-filter-chip search-panel-filter-chip--aifree'+(state.aiFreeOn?' active':'')+'" id="aiFreeChip">AI-Free</button>'+
-      '</div>';
-    footer.querySelectorAll('.search-panel-filter-chip[data-filter]').forEach(chip => {
-      chip.addEventListener('click', e => {
-        e.stopPropagation();
-        state.searchType = chip.dataset.filter;
-        renderSearchPanel();
-        saveState();
-        updatePlaceholder();
-      });
-    });
-    const aiChip = document.getElementById('aiFreeChip');
-    if (aiChip) aiChip.addEventListener('click', e => {
-      e.stopPropagation();
-      state.aiFreeOn = !state.aiFreeOn;
-      renderSearchPanel();
-      saveState();
-      updatePlaceholder();
-    });
+/* ── Filter bar + AI hint (inside drawer) ── */
+function renderFilterBar(){
+  const bar=document.getElementById("filterBar");
+  const hint=document.getElementById("aiModeHint");
+  if(isAI()){
+    bar.classList.remove("visible");
+    const ap=state.aiProvider;const auto=AI_AUTO.has(ap);
+    hint.textContent=auto?"Opens directly to your query results":"Prefills the chat input — press Enter to send";
+    hint.classList.add("active");
+    return;
   }
+  hint.classList.remove("active");
+  bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
+    `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
+  bar.classList.add("visible");
+  bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
+    chip.addEventListener("click",e=>{e.stopPropagation();state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
+  });
+  document.getElementById("aiFreeChip")?.addEventListener("click",e=>{e.stopPropagation();state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
 }
-
-function renderSearchPanel(){
-  renderSearchTabs();
-  renderSearchRecent();
-  renderSearchGrid();
-  renderSearchFooter();
-}
-
 
 function updatePlaceholder(){
   const i=document.getElementById("searchInput");
@@ -426,7 +331,7 @@ function updatePlaceholder(){
 }
 
 function refreshUI(){
-  updateModeChip();renderSearchPanel();updatePlaceholder();saveState();
+  updateModeTag();renderDrawer();renderFilterBar();updatePlaceholder();saveState();
 }
 
 /* ── Submit ── */
@@ -444,94 +349,16 @@ function submitSearch(q){
   let url=state.aiFreeOn?aiFreeURL(base,query,state.searchEngine):base+encodeURIComponent(query);
   window.location.href=url;
 }
-/* ── Recent-searches (lives INSIDE the search panel)
-   No separate dropdown. The recent row shows up at the top of
-   the expanded panel, above the engine grid. The flow:
-     - Hydrate from localStorage synchronously (so the panel has
-       entries on first open).
-     - Hydrate from chrome.storage.local in the background.
-     - renderSearchRecent() draws into #searchPanelRecent. */
-const HISTORY_KEY = "hzHistory";
-const HISTORY_MAX = 12;
-let searchHistory = [];
 
-/* Hydrate the recent-searches list.
-   Synchronous bootstrap reads from localStorage so the panel has
-   entries on first open (the page is auto-focused on load and the
-   panel may render before chrome.storage.local has resolved). Then
-   chrome.storage.local is queried async; if it has fresher data
-   (e.g. synced from another device), we re-render. */
-function _loadSearchHistorySync(){
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    if (raw) {
-      const v = JSON.parse(raw);
-      if (Array.isArray(v)) return v;
-    }
-  } catch {}
-  return [];
-}
-async function loadSearchHistory(){
-  searchHistory = _loadSearchHistorySync();
-  try {
-    const r = await chrome.storage.local.get([HISTORY_KEY]);
-    if (Array.isArray(r[HISTORY_KEY])) {
-      searchHistory = r[HISTORY_KEY];
-      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory)); } catch {}
-    }
-  } catch {}
-}
+/* ══════════════════════════════════════════════════
+   SETTINGS
+   ══════════════════════════════════════════════════ */
+function openSettings(){document.getElementById("settingsPanel").classList.add("open");document.getElementById("settingsBackdrop").classList.add("open");renderSettings()}
+function closeSettings(){document.getElementById("settingsPanel").classList.remove("open");document.getElementById("settingsBackdrop").classList.remove("open")}
 
-function renderSearchRecent(){
-  const container = document.getElementById('searchPanelRecent');
-  if (!container) return;
-  if (!searchHistory.length) { container.innerHTML = ''; return; }
-  container.innerHTML =
-    '<div class="search-panel-recent-header">'+
-      '<span>Recent</span>'+
-      '<button type="button" class="search-panel-recent-clear" id="searchPanelRecentClear">Clear all</button>'+
-    '</div>'+
-    '<ul class="search-panel-recent-list">'+
-      searchHistory.slice(0, 6).map(e =>
-        '<li><button type="button" class="search-panel-recent-item" data-q="'+escapeAttr(e.q)+'">'+
-          '<span class="search-panel-recent-q">'+escapeHtml(e.q)+'</span>'+
-          '<span class="search-panel-recent-x" aria-label="Remove">×</span>'+
-        '</button></li>'
-      ).join('')+
-    '</ul>';
-  container.querySelectorAll('.search-panel-recent-item').forEach(btn => {
-    btn.addEventListener('click', e => {
-      if (e.target.closest('.search-panel-recent-x')) {
-        e.stopPropagation();
-        deleteSearchEntry(btn.dataset.q);
-        return;
-      }
-      const input = document.getElementById('searchInput');
-      if (input) {
-        input.value = btn.dataset.q;
-        collapseSearch();
-        submitSearch(input.value.trim());
-      }
-    });
-  });
-  document.getElementById('searchPanelRecentClear')?.addEventListener('click', e => {
-    e.stopPropagation();
-    clearSearchHistory();
-    renderSearchPanel();
-  });
-}
-
-/* ── Small HTML-escape helpers used everywhere */
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c => (
-    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
-  ));
-}
-function escapeAttr(s){ return escapeHtml(s); }
-
-/* ── Methodology modal — shown when the user taps the
-   "methodology" link in the AI Signal section of settings.
-   In-page modal that explains the heuristic with full disclosure. */
+/* ── Methodology modal — shown when the user taps the "methodology"
+     link in the AI Signal section of settings. We open a lightweight
+     modal on top of the settings panel with full disclosure. */
 function showMethodology(){
   let modal=document.getElementById("aiMethodologyModal");
   if(!modal){
@@ -542,40 +369,34 @@ function showMethodology(){
       <div class="ai-methodology-card">
         <div class="ai-methodology-head">
           <h3>How AI Signal works</h3>
-          <button class="ai-methodology-close" id="aiMethodologyClose">✕</button>
+          <button type="button" id="aiMethodologyClose" aria-label="Close">✕</button>
         </div>
         <div class="ai-methodology-body">
-          <p><strong>The honest reality.</strong> No client-side detector is reliable. Heuristics are a useful first-pass “smell test” but should never be treated as a definitive verdict.</p>
-          <h4>What we look at</h4>
+          <p><strong>What it is.</strong> A client-side "smell test" for AI-flavored writing. Every score is an <em>estimate</em>, not a verdict.</p>
+          <p><strong>What it looks at.</strong> Each search result's title and snippet (the text Google / DuckDuckGo / Brave already shows you), plus the URL shape. We never fetch the article body — your browsing history stays yours.</p>
+          <p><strong>Three signals, combined.</strong></p>
           <ul>
-            <li><strong>Sentence-length uniformity.</strong> AI prose has very consistent sentence lengths; humans are burstier.</li>
-            <li><strong>Em-dash + transition density.</strong> AI leans on — plus words like <em>Furthermore</em>, <em>Moreover</em>, <em>Additionally</em>.</li>
-            <li><strong>Vocabulary distribution.</strong> Phrases like <em>delve into</em>, <em>comprehensive guide</em>, <em>actionable insights</em>, <em>digital landscape</em> are flag-weighted.</li>
-            <li><strong>Author / byline signal.</strong> Self-disclosure (“as an AI”) or missing byline tips the score up.</li>
-            <li><strong>Domain signal.</strong> URL shape + a small whitelist of known publications.</li>
+            <li><strong>Text patterns</strong> (65% weight) — weighted lexicon of 30+ AI-isms ("delve into", "navigate the complexities", "in today's digital landscape", "it's important to note", etc.), plus sentence-length uniformity and em-dash density.</li>
+            <li><strong>Author / byline</strong> (15% weight) — looks for named humans ("By Jane Smith") in the snippet; penalizes self-disclosure ("AI-generated").</li>
+            <li><strong>Domain signals</strong> (20% weight) — URL shape (TLD, hyphen slug, date-stamped path), with a small whitelist of known human-publication outlets (NYT, Atlantic, Wired, etc.) that override the score downward.</li>
           </ul>
-          <h4>What it can’t do</h4>
-          <ul>
-            <li>False positives on formal human prose (legal briefs, dense academic writing).</li>
-            <li>Lightly-edited AI text will usually pass.</li>
-            <li>No detection of AI images, AI audio, or AI video.</li>
-          </ul>
-          <p class="ai-methodology-foot">Score thresholds: low &lt;35 · medium 35–65 · high &gt;65. Defaults tuned to under-flag at medium sensitivity.</p>
+          <p><strong>Calibration.</strong> Three sensitivities — Low (only obvious cases, multiplier 0.55), Medium (default, 1.0), High (sensitive, 1.35). The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.</p>
+          <p><strong>Hide-above mode.</strong> When you set a hide threshold, results meeting/exceeding that score collapse to a single hover-to-expand line. We don't delete them from the DOM (that would break SERP pagination). Hover any collapsed result to expand it for that moment.</p>
+          <p><strong>Per-result dismissal.</strong> Every badge has a "✕" that hides it for that domain. Your dismissed domains persist in chrome.storage.sync and never show the badge again.</p>
+          <p><strong>What it will NOT do.</strong> It will not catch lightly-edited AI text. It will not catch a human who happens to write in a corporate / listicle style. It will not give you a definitive "this is AI" answer. Anyone who tells you they can do that from a browser extension is lying.</p>
+          <p class="ai-methodology-foot">Score is computed locally. No page is fetched, no data is sent off-device. The whole module adds ~15KB to the extension.</p>
         </div>
       </div>`;
     document.body.appendChild(modal);
-    modal.addEventListener("click",e=>{
-      if(e.target===modal||e.target.closest("#aiMethodologyClose")){
-        modal.remove();
-      }
+    document.getElementById("aiMethodologyClose").addEventListener("click",()=>{
+      modal.classList.remove("open");
+    });
+    modal.addEventListener("click",(e)=>{
+      if(e.target===modal)modal.classList.remove("open");
     });
   }
+  modal.classList.add("open");
 }
-
-
-function openSettings(){document.getElementById("settingsPanel").classList.add("open");document.getElementById("settingsBackdrop").classList.add("open");renderSettings();}
-function closeSettings(){document.getElementById("settingsPanel").classList.remove("open");document.getElementById("settingsBackdrop").classList.remove("open");}
-
 function renderSettings(){
   const gi=Math.round((state.glassOpacity||.04)*100);
   document.getElementById("settingsTitle").textContent="Horizon Settings";
@@ -637,23 +458,6 @@ function renderSettings(){
           <strong>Heuristic, not a verdict.</strong> False positives are possible — formal human writing can get flagged. Every result can be dismissed (\u2715) per-domain. Read the
           <a href="#" id="aiHowLink" style="color:var(--accent)">methodology</a> for details.
         </p>
-        <div style="margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--border)">
-          <label class="settings-label" style="font-size:.7rem;opacity:.75">
-            Google Safe Browsing API key
-            <span id="sbKeyStatus" style="margin-left:.4rem;font-size:.65rem;opacity:.6"></span>
-          </label>
-          <input type="password" id="sbKeyInput" class="link-editor le-url"
-                 placeholder="Paste your API key (AIza...) \u2014 optional"
-                 style="width:100%;font-family:monospace;font-size:.72rem"
-                 autocomplete="off" />
-          <p class="settings-hint" style="margin-top:.3rem">
-            Optional. When set, each search result is checked against
-            <a href="https://developers.google.com/safe-browsing/v4/get-started" target="_blank" style="color:var(--accent)">Google Safe Browsing</a>
-            for malware / phishing. Get a key from Google Cloud Console
-            \u2192 APIs &amp; Services \u2192 Credentials. Apply API
-            restrictions (Safe Browsing API only) before saving.
-          </p>
-        </div>
       `:""}
     </div>
     <div class="settings-group">
@@ -682,46 +486,6 @@ function renderSettings(){
   document.querySelectorAll("[data-aisens]").forEach(b=>b.addEventListener("click",()=>{state.aiSensitivity=b.dataset.aisens;saveState();renderSettings()}));
   document.getElementById("aiHideSlider")?.addEventListener("input",e=>{
     state.aiHideAbove=parseInt(e.target.value,10)||0;
-  /* v3.1 \u2014 Google Safe Browsing API key wiring.
-     The user pastes their own key here. It's stored in
-     chrome.storage.sync under "hz_sb_key" (never bundled with the
-     extension). When set, the background service worker uses it
-     to check each search result against Safe Browsing. When unset,
-     the check is skipped silently. */
-  try {
-    const sbInput = document.getElementById('sbKeyInput');
-    const sbStatus = document.getElementById('sbKeyStatus');
-    if (sbInput && sbStatus) {
-      chrome.storage.sync.get(['hz_sb_key'], (r) => {
-        const k = r && r.hz_sb_key;
-        if (k && k.length > 10) {
-          sbInput.value = k;
-          sbStatus.textContent = '\u2713 key configured';
-          sbStatus.style.color = 'var(--accent)';
-        } else {
-          sbStatus.textContent = '(not set)';
-          sbStatus.style.color = 'var(--text-muted)';
-        }
-      });
-      let sbTimer = null;
-      sbInput.addEventListener('input', () => {
-        clearTimeout(sbTimer);
-        sbTimer = setTimeout(() => {
-          const v = sbInput.value.trim();
-          if (v && v.length > 10) {
-            chrome.storage.sync.set({ hz_sb_key: v });
-            sbStatus.textContent = '\u2713 key saved';
-            sbStatus.style.color = 'var(--accent)';
-          } else {
-            chrome.storage.sync.remove('hz_sb_key');
-            sbStatus.textContent = v ? '(too short)' : '(not set)';
-            sbStatus.style.color = v ? '#dc2626' : 'var(--text-muted)';
-          }
-        }, 250);
-      });
-    }
-  } catch (_) {}
-
     document.getElementById("aiHideVal").textContent=state.aiHideAbove||"—";
     saveState();
   });
@@ -747,77 +511,22 @@ document.getElementById("bgUpload").addEventListener("change",e=>{
   };r.readAsDataURL(f);e.target.value="";
 });
 
-/* ── Global keyboard shortcuts
-   "/"                  focus the search bar (when no input is focused)
-   Cmd/Ctrl + K         same as "/"
-   Escape               cascade close: AI methodology modal ->
-                        settings panel -> drawer. Each level
-                        captures Escape and stops it bubbling.
-   Cmd/Ctrl + ,         open settings  (chrome standard shortcut)
-   Up/Down/Left/Right   navigate the drawer grid (see below) */
-
-
-function isTypingTarget(el){
-  if (!el) return false;
-  const t = el.tagName;
-  return t === "INPUT" || t === "TEXTAREA" || el.isContentEditable;
-}
-
 document.addEventListener("keydown",e=>{
-  // Escape always wins — cascade close
-  if (e.key === "Escape") {
-    const aiModal = document.getElementById("aiMethodologyModal");
-    if (aiModal && aiModal.classList.contains("open")) {
-      aiModal.classList.remove("open");
-      e.preventDefault(); e.stopPropagation();
-      return;
-    }
-    const sp = document.getElementById("settingsPanel");
-    if (sp && sp.classList.contains("open")) {
-      closeSettings();
-      e.preventDefault(); e.stopPropagation();
-      return;
-    }
-    if (isSearchExpanded()) {
-      collapseSearch();
-      e.preventDefault(); e.stopPropagation();
-      return;
-    }
+  // Cmd+K, /, or similar — focus search
+  if((e.key==="/"||(e.key==="k"&&(e.metaKey||e.ctrlKey)))&&!isDrawerOpen()&&
+     !document.getElementById("settingsPanel").classList.contains("open")){
+    e.preventDefault();
+    document.getElementById("searchInput").focus({preventScroll:true});
+    return;
   }
-
-  // "/" focuses search — only when not already in an input
-  if (e.key === "/" && !isTypingTarget(e.target)) {
-    const inp = document.getElementById("searchInput");
-    if (inp) {
-      e.preventDefault();
-      inp.focus();
-      inp.select();
-    }
-  }
-
-  // Cmd/Ctrl+K focuses search (sublime-style)
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-    const inp = document.getElementById("searchInput");
-    if (inp) {
-      e.preventDefault();
-      inp.focus();
-      inp.select();
-    }
-  }
-
-  // Cmd/Ctrl+, opens settings (works on Windows/Linux; Mac
-  // reserves Cmd+, for the system so it never reaches the page).
-  if ((e.metaKey || e.ctrlKey) && (e.key === ',' || e.code === 'Comma')) {
+  if(e.key==="?"&&!isDrawerOpen()&&
+     !document.getElementById("settingsPanel").classList.contains("open")){
     e.preventDefault();
     openSettings();
     return;
   }
-  // '?' (shift+/) is the universal "help / settings" shortcut that
-  // DOES work on Mac. Only fires when not already in an input.
-  if (e.key === '?' && !isTypingTarget(e.target)) {
-    e.preventDefault();
-    openSettings();
-  }
+  if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
+  if(e.key==="Escape"&&isDrawerOpen())closeDrawer();
 });
 
 /* ══════════════════════════════════════════════════
@@ -836,208 +545,48 @@ document.addEventListener("keydown",e=>{
   fetchWeather();setInterval(fetchWeather,1800000);
   renderLinks();
 
-  /* ── Search bar (v2.2.0 single-pill architecture) ──
-     The bar is one cohesive pill that has chrome at all times.
-     Focus expands the panel inside the pill. Outside clicks
-     collapse it. No more separate drawer below. */
+  /* ── Search: click row toggles drawer, focus opens it ── */
+  const sec=document.getElementById("searchSection");
   const input=document.getElementById("searchInput");
 
-  // Mode chip click: toggle panel + focus input
-  document.getElementById("modeChip")?.addEventListener("click",()=>{
-    if (isSearchExpanded()) {
-      collapseSearch();
-    } else {
-      expandSearch();
-    }
-    document.getElementById("searchInput")?.focus({ preventScroll: true });
+  // Clicking the search row (anywhere outside input) toggles drawer
+  document.querySelector(".search-row").addEventListener("click",e=>{
+    if(e.target===input||input.contains(e.target)){openDrawer();return}
+    toggleDrawer();
+    if(isDrawerOpen())input.focus();
   });
-  // Chevron click: toggle panel
-  document.getElementById("searchToggle")?.addEventListener("click",(e)=>{
-    e.stopPropagation();
-    toggleSearch();
-    document.getElementById("searchInput")?.focus({ preventScroll: true });
-  });
-  // Input focus: expand panel. We use a flag to suppress the
-  // re-expand when collapseSearch() programmatically refocuses
-  // the input as part of the close animation.
-  input.addEventListener("focus", () => {
-    if (_suppressExpandOnFocus) return;
-    expandSearch();
-  });
-  // Compact the mode chip while the user is typing
-  input.addEventListener("input", updateModeChip);
 
-  // Close panel on outside pointerdown. We use pointerdown (not
-  // click) so it fires BEFORE focus shifts away from the input.
-  // collapseSearch() refocuses the input — if we listened on
-  // 'click', the click would fire AFTER focus had moved to the
-  // target, and the document handler wouldn't see the bar as
-  // containing the original input. pointerdown is the right
-  // primitive for "I clicked outside the bar".
+  // Mode tag and arrow both toggle drawer directly
+  document.getElementById("modeTag").addEventListener("click",e=>{
+    e.stopPropagation();
+    toggleDrawer();
+    if(isDrawerOpen())input.focus();
+  });
+  document.getElementById("searchArrow").addEventListener("click",e=>{
+    e.stopPropagation();
+    toggleDrawer();
+    if(isDrawerOpen())input.focus();
+  });
+  input.addEventListener("focus",openDrawer);
+  input.addEventListener("input",tagOnInput);
+
+  // Close drawer on outside click.
+  // Use pointerdown (not click) so this fires BEFORE the focus
+  // event, preventing the click target from receiving focus and
+  // re-triggering openDrawer via the input focus listener.
   document.addEventListener("pointerdown",e=>{
-    const bar = document.getElementById("searchBar");
-    if (isSearchExpanded() && bar && !bar.contains(e.target)) {
-      collapseSearch();
+    if(isDrawerOpen()&&!sec.contains(e.target)){
+      closeDrawer();
     }
   });
 
   // Form submit
-  document.getElementById("searchForm").addEventListener("submit",e=>{
-    e.preventDefault();
-    const v = input.value.trim();
-    if (v) { recordSearch(v); }
-    submitSearch(v);
-  });
+  document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(input.value.trim())});
 
-  /* v3.3 — Recent-searches now live inside the search panel
-     (not a separate dropdown). We hydrate them synchronously so
-     the panel's recent row shows entries on first open. */
-  searchHistory = _loadSearchHistorySync();
-  loadSearchHistory().then(() => {
-    renderSearchRecent();
-    renderSearchPanel();
-  });
-  input.addEventListener("focus", () => {
-  });
-  input.addEventListener("blur", () => {
-    // Delay so click on a history item can fire first.
-    setTimeout(() => {
-      const hist = document.getElementById('searchHistory');
-      if (!hist) return;
-    }, 120);
-  });
-  input.addEventListener("input", () => {
-  });
-  document.getElementById("searchHistoryClear")?.addEventListener("click", clearSearchHistory);
-
-  /* Arrow keys: when the input has focus and history is open,
-     Up/Down move the active descendant, Enter submits it.
-     We intercept BEFORE the drawer-grid handler so the input
-     context wins. */
-  // Arrow keys from the input are handled by the unified arrow-nav
-  // handler installed later in boot. (The panel is part of the same
-  // DOM tree so focus flows naturally.)
-
-
-  renderSearchPanel();refreshUI();
+  renderDrawer();refreshUI();
 
   // Settings
   document.getElementById("settingsToggle").addEventListener("click",openSettings);
   document.getElementById("settingsClose").addEventListener("click",closeSettings);
   document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
 })();
-
-/* ── Unified arrow-key navigation (v2.2.0)
-   Single flow:
-     input  ↓  first tab  ↓  first engine
-     engine ↑  tab (or input if at top row)
-   Left/Right on tabs switches the active tab.
-   Left/Right/Up/Down on the engine grid does 2D nav within it.
-   Escape is handled by the global keyboard handler. */
-(function setupArrowNav(){
-  function colCount(grid){
-    if (!grid) return 1;
-    if (grid.classList.contains('ai-grid')) return 4;
-    const cs = getComputedStyle(grid);
-    const m = cs.gridTemplateColumns && cs.gridTemplateColumns.match(/repeat\((\d+)/);
-    if (m) return parseInt(m[1], 10) || 1;
-    const w = grid.clientWidth;
-    return Math.max(1, Math.floor(w / 130));
-  }
-  document.addEventListener('keydown', (e) => {
-    const t = e.target;
-    if (!t) return;
-    const input = t.id === 'searchInput';
-    const tab = t.closest && t.closest('.search-panel-tab');
-    const btn = t.closest && t.closest('.engine-btn');
-    const recent = t.closest && t.closest('.search-panel-recent-item');
-    if (!input && !tab && !btn && !recent) return;
-
-    // ── Tabs ── Left/Right switches, Up returns to input
-    if (tab) {
-      const tabs = Array.from(document.querySelectorAll('.search-panel-tab'));
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (e.key === 'ArrowDown') {
-          const firstEngine = document.querySelector('.search-panel-grid .engine-btn');
-          if (firstEngine) firstEngine.focus();
-        } else {
-          const i = tabs.indexOf(tab);
-          const target = tabs[(i + 1) % tabs.length];
-          target.click(); target.focus();
-        }
-        return;
-      }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (e.key === 'ArrowUp') {
-          const inp = document.getElementById('searchInput');
-          if (inp) inp.focus({ preventScroll: true });
-        } else {
-          const i = tabs.indexOf(tab);
-          const target = i === 0 ? tabs[tabs.length - 1] : tabs[i - 1];
-          target.click(); target.focus();
-        }
-        return;
-      }
-      return;
-    }
-
-    // ── Engine buttons ── 2D nav + Up to tabs
-    if (btn) {
-      const grid = btn.closest('.search-panel-grid');
-      if (!grid) return;
-      const btns = Array.from(grid.querySelectorAll('.engine-btn'));
-      const idx = btns.indexOf(btn);
-      if (idx < 0) return;
-      const cols = colCount(grid);
-      let next = idx;
-      switch (e.key) {
-        case 'ArrowRight': next = (idx + 1) % btns.length; break;
-        case 'ArrowLeft':  next = (idx - 1 + btns.length) % btns.length; break;
-        case 'ArrowDown':  next = Math.min(btns.length - 1, idx + cols); break;
-        case 'ArrowUp':
-          if (idx - cols < 0) {
-            // At top row — jump back to active tab
-            e.preventDefault();
-            const activeTab = document.querySelector('.search-panel-tab.active');
-            if (activeTab) activeTab.focus();
-            return;
-          }
-          next = idx - cols;
-          break;
-        case 'Home':       next = 0; break;
-        case 'End':        next = btns.length - 1; break;
-        default: return;
-      }
-      e.preventDefault();
-      btns[next].focus();
-      return;
-    }
-
-    // ── Recent search item ── Down to engines, Up to tabs
-    if (recent) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const firstEngine = document.querySelector('.search-panel-grid .engine-btn');
-        if (firstEngine) firstEngine.focus();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const activeTab = document.querySelector('.search-panel-tab.active');
-        if (activeTab) activeTab.focus();
-      }
-      return;
-    }
-
-    // ── Input ── Down moves to first tab
-    if (input) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const firstTab = document.querySelector('.search-panel-tab.active')
-          || document.querySelector('.search-panel-tab');
-        if (firstTab) firstTab.focus();
-      }
-    }
-  });
-})();
-
