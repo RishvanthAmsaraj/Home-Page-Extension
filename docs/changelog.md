@@ -181,7 +181,7 @@ Fix: the expanded panel now has an **explicit, transitioned width** (`292px` = 3
 ## Added for publication
 
 - **`PRIVACY.md`** — store listings that request host permissions need a privacy policy; this one is accurate to the code: no servers/analytics, weather→NWS, favicons→Google s2, Safe Browsing hostname→Google only with the user's own key, all AI scoring on-device.
-- **Store-ready package** — `horizon-tab-1.10.0-store.zip` contains only runtime files (manifest, tab.*, icons, the five aiscan runtime files). Dev artifacts (test pages, bookmarklets, spike.html, node harness) stay in the repo but out of the reviewed package.
+- **Store-ready package** — `horizon-tab-1.10.0-store.zip` contains only runtime files (manifest, tab.*, icons, the five aiscan runtime files). Dev artifacts (test pages, bookmarklets, methodology, node harness) stay in the repo but out of the reviewed package.
 
 ## Worth considering (your call)
 
