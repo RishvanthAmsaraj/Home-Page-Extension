@@ -132,26 +132,35 @@ body{
 /* ── Glass orb */
 .glass-orb{position:fixed;width:640px;height:640px;border-radius:50%;z-index:0;pointer-events:none;
   background:radial-gradient(circle at 40% 40%,var(--accent) 0%,transparent 70%);
-  opacity:.035;filter:blur(90px);animation:drift 28s ease-in-out infinite alternate;transition:all .8s;
+  opacity:.035;filter:blur(90px);animation:drift 28s ease-in-out infinite alternate;
+  transition:opacity .8s var(--ease-smooth),background .8s var(--ease-smooth);
+  will-change:transform;
 }
 
 /* ── Container */
-.container{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:2rem;width:100%;max-width:640px;animation:fadeUp .8s cubic-bezier(.2,.9,.3,1);gap:1.5rem}
+.container{--hero-gap:.85rem;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:2rem;width:100%;max-width:640px;animation:fadeIn .55s var(--ease-smooth) both;gap:1.5rem}
 /* Container justify shifts based on drawer state — default centered content */
 .container{justify-content:center;min-height:100dvh}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes drift{0%{transform:translate(-18%,-8%) scale(1)}50%{transform:translate(22%,6%) scale(1.12)}100%{transform:translate(-12%,18%) scale(.92)}}
 
-/* ── Hero */
-.hero{text-align:center}
-.hero .greeting{font-size:.82rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--hero-sub);opacity:.6;margin-bottom:.1rem;animation:fadeUp .6s .05s both;transition:color .5s}
-.hero .time{font-size:5rem;font-weight:260;letter-spacing:-.02em;line-height:1.05;margin-bottom:.15rem;font-variant-numeric:tabular-nums;color:var(--hero-text);animation:fadeUp .6s .1s both;transition:color .5s,text-shadow .4s}
+/* ── Hero
+   One rhythm for the whole stack: greeting↔time↔date share --hero-gap
+   via flex gap (margins zeroed), and the weather pill below is pulled
+   into the same rhythm (see .weather). text-box trims the 5rem clock's
+   font leading in Chromium so the measured gap IS the visual gap;
+   Firefox ignores it gracefully. */
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--hero-gap,.85rem)}
+.hero .greeting{font-size:.82rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--hero-sub);opacity:.6;margin:0;animation:fadeUp .6s .05s both;transition:color .5s}
+.hero .time{font-size:5rem;font-weight:260;letter-spacing:-.02em;line-height:1;text-box:trim-both cap alphabetic;margin:0;font-variant-numeric:tabular-nums;color:var(--hero-text);animation:fadeUp .6s .1s both;transition:color .5s,text-shadow .4s}
 .hero .time:hover{text-shadow:0 0 40px var(--accent-glow)}
-.hero .date{font-size:.82rem;font-weight:400;letter-spacing:.05em;animation:fadeUp .6s .15s both;color:var(--hero-sub);opacity:.7;transition:color .5s}
+.hero .date{font-size:.82rem;font-weight:400;letter-spacing:.05em;margin:0;animation:fadeUp .6s .15s both;color:var(--hero-sub);opacity:.7;transition:color .5s}
 
 /* ── Weather */
-.weather{display:flex;align-items:center;gap:.45rem;font-size:.78rem;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:.4rem .95rem;backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));transition:all .35s cubic-bezier(.32,.72,.24,1);animation:fadeUp .6s .2s both}
+.weather{margin-top:calc(var(--hero-gap,.85rem) - 1.5rem); /* container gap is 1.5rem; net date↔weather distance = --hero-gap, matching the hero rhythm */
+  display:flex;align-items:center;gap:.45rem;font-size:.78rem;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:.4rem .95rem;backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));transition:background-color .35s var(--ease-smooth),border-color .35s var(--ease-smooth),color .35s var(--ease-smooth),box-shadow .35s var(--ease-smooth);animation:fadeUp .6s .2s both}
 .weather:hover{border-color:var(--border-strong);box-shadow:0 0 0 1px var(--accent-glow)}
 .weather-icon{font-size:1.1rem;line-height:1}
 .weather-temp{font-size:.9rem;font-weight:600;color:var(--text)}
@@ -250,8 +259,10 @@ body{
   background:transparent;
   border:none;
   border-radius:0;
-  transition:none;
+  transform:translateY(-6px);
+  transition:transform .5s var(--ease-spring) .05s;
 }
+.search-section.open .search-drawer{transform:translateY(0)}
 
 
 /* ── Drawer tab bar ──
@@ -264,7 +275,7 @@ body{
   padding:.3rem .8rem;border-radius:100px;border:1px solid transparent;
   background:transparent;color:var(--text-dim);font-size:.66rem;font-weight:500;
   font-family:inherit;cursor:pointer;
-  transition:all .28s var(--ease-spring);
+  transition:background-color .28s var(--ease-smooth),border-color .28s var(--ease-smooth),color .28s var(--ease-smooth),transform .28s var(--ease-spring),box-shadow .28s var(--ease-smooth);
 }
 .drawer-tab:hover{color:var(--text);background:var(--surface-hover-rgba);border-color:var(--border-strong);transform:translateY(-1px)}
 .drawer-tab.active{
@@ -301,7 +312,7 @@ body{
   border-radius:7px;border:1px solid transparent;background:transparent;
   color:var(--text-dim);font-size:.72rem;font-family:inherit;cursor:pointer;
   text-align:left;
-  transition:all .28s var(--ease-spring),box-shadow .28s var(--ease-smooth);
+  transition:background-color .28s var(--ease-smooth),border-color .28s var(--ease-smooth),color .28s var(--ease-smooth),transform .28s var(--ease-spring),box-shadow .28s var(--ease-smooth);
 }
 .drawer-btn:hover{background:var(--surface-hover-rgba);color:var(--text);border-color:var(--border-strong);transform:translateY(-1px)}
 .drawer-btn.active{
@@ -310,7 +321,7 @@ body{
   box-shadow:0 0 0 1px var(--accent-glow),inset 0 1px 0 rgba(255,255,255,.06);
   font-weight:600;
 }
-.drawer-btn .db-svg{flex-shrink:0;width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center}
+.drawer-btn .db-svg{flex-shrink:0;width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;transition:transform .28s var(--ease-spring)}
 .drawer-btn .db-svg svg{width:14px;height:14px;display:block}
 .drawer-btn:hover .db-svg{transform:scale(1.08)}
 .drawer-btn .db-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -327,8 +338,7 @@ body{
   border-radius:100px;border:1px solid var(--border);background:var(--surface);
   color:var(--text-muted);font-size:.64rem;cursor:pointer;font-family:inherit;
   line-height:1.4;
-  backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));
-  transition:all .28s var(--ease-spring),box-shadow .28s var(--ease-smooth);
+  transition:background-color .28s var(--ease-smooth),border-color .28s var(--ease-smooth),color .28s var(--ease-smooth),transform .28s var(--ease-spring),box-shadow .28s var(--ease-smooth);
 }
 .filter-chip.active{
   /* Same translucent-fill language as the tab + provider button so
@@ -347,7 +357,7 @@ body{
 .search-section.open .ai-hint.active{max-height:30px;padding:.2rem 0 0;opacity:1}
 
 
-.link-item{display:flex;flex-direction:column;align-items:center;gap:.3rem;text-decoration:none;color:var(--text-dim);font-size:.7rem;padding:.6rem .85rem;border-radius:var(--rs);background:var(--surface);border:1px solid transparent;min-width:68px;transition:all .35s var(--ease-spring),box-shadow .35s var(--ease-smooth),color .25s,background .25s;backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px))}
+.link-item{display:flex;flex-direction:column;align-items:center;gap:.3rem;text-decoration:none;color:var(--text-dim);font-size:.7rem;padding:.6rem .85rem;border-radius:var(--rs);background:var(--surface);border:1px solid transparent;min-width:68px;transition:background-color .25s var(--ease-smooth),border-color .35s var(--ease-smooth),color .25s var(--ease-smooth),transform .35s var(--ease-spring),box-shadow .35s var(--ease-smooth)}
 .link-item:hover{background:var(--surface-hover-rgba);border-color:var(--border-strong);color:var(--text);transform:translateY(-4px) scale(1.02);box-shadow:var(--shadow-hover),0 0 0 1px var(--accent-glow)}
 .link-item:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accent)}
 .link-icon{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;transition:transform .3s var(--ease-spring);overflow:hidden;position:relative}
@@ -357,17 +367,19 @@ body{
 .link-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:68px;font-weight:500}
 
 /* ── Settings toggle */
-.settings-toggle{position:fixed;bottom:24px;right:24px;width:40px;height:40px;z-index:10;border-radius:50%;border:1px solid var(--border);background:var(--surface);backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));color:var(--text-dim);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .4s var(--ease-spring),background .3s var(--ease-smooth),box-shadow .3s var(--ease-smooth);animation:fadeUp .6s .35s both}
+.settings-toggle{position:fixed;bottom:24px;right:24px;width:40px;height:40px;z-index:10;border-radius:50%;border:1px solid var(--border);background:var(--surface);backdrop-filter:blur(var(--blur,24px));-webkit-backdrop-filter:blur(var(--blur,24px));color:var(--text-dim);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .3s var(--ease-smooth),border-color .3s var(--ease-smooth),color .3s var(--ease-smooth),transform .4s var(--ease-spring),box-shadow .3s var(--ease-smooth);animation:fadeUp .6s .35s both}
 .settings-toggle:hover{background:var(--surface-hover-rgba);border-color:var(--accent);color:var(--text);transform:scale(1.08);box-shadow:0 0 0 1px var(--accent-glow),0 4px 12px var(--accent-glow)}
 
 /* ── Settings panel */
 .settings-backdrop{position:fixed;inset:0;z-index:98;background:rgba(0,0,0,0.45);opacity:0;pointer-events:none;transition:opacity .35s var(--ease-smooth)}
 .settings-backdrop.open{opacity:1;pointer-events:all;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-.settings-panel{position:fixed;top:0;right:-420px;width:400px;max-width:90vw;height:100%;background:var(--bg2);border-left:1px solid var(--border-strong);z-index:99;overflow-y:auto;transition:right .55s var(--ease-spring)}
-.settings-panel.open{right:0}
+.settings-panel{position:fixed;top:0;right:0;width:400px;max-width:90vw;height:100%;background:var(--bg2);border-left:1px solid var(--border-strong);z-index:99;overflow-y:auto;
+  transform:translateX(calc(100% + 24px));will-change:transform;visibility:hidden;contain:layout paint;
+  transition:transform .55s var(--ease-spring),visibility 0s .55s}
+.settings-panel.open{transform:translateX(0);visibility:visible;transition:transform .55s var(--ease-spring),visibility 0s}
 .settings-header{display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.25rem .5rem;border-bottom:1px solid var(--border)}
 .settings-header h2{font-size:.95rem;font-weight:600;color:var(--text);letter-spacing:-.01em}
-.settings-close{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s var(--ease-spring),background .25s var(--ease-smooth),box-shadow .25s var(--ease-smooth)}
+.settings-close{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .25s var(--ease-smooth),border-color .25s var(--ease-smooth),color .25s var(--ease-smooth),transform .3s var(--ease-spring),box-shadow .25s var(--ease-smooth)}
 .settings-close:hover{background:var(--surface-hover-rgba);color:var(--text);border-color:var(--accent);box-shadow:0 0 12px var(--accent-glow)}
 .settings-body{padding:.9rem 1.25rem 2rem;display:flex;flex-direction:column;gap:1.1rem}
 .settings-group{display:flex;flex-direction:column;gap:.4rem}
@@ -375,7 +387,7 @@ body{
 .settings-hint{font-size:.72rem;color:var(--text-dim);margin-top:-.2rem}
 
 .theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
-.theme-btn,.engine-btn,.upload-btn{display:flex;align-items:center;gap:.45rem;padding:.45rem .7rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;font-family:inherit;cursor:pointer;transition:all .28s var(--ease-spring),background .2s var(--ease-smooth),box-shadow .2s var(--ease-smooth);text-align:left;width:100%}
+.theme-btn,.engine-btn,.upload-btn{display:flex;align-items:center;gap:.45rem;padding:.45rem .7rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;font-family:inherit;cursor:pointer;transition:background-color .2s var(--ease-smooth),border-color .2s var(--ease-smooth),color .2s var(--ease-smooth),transform .28s var(--ease-spring),box-shadow .2s var(--ease-smooth);text-align:left;width:100%}
 .theme-btn:hover,.engine-btn:hover,.upload-btn:hover{background:var(--surface-hover-rgba);color:var(--text);border-color:var(--border-strong);transform:translateY(-1px)}
 .theme-btn.active,.engine-btn.active{
   /* Same active treatment as the drawer tabs / buttons / chips. */
@@ -408,9 +420,9 @@ body{
 .link-editor input::placeholder{color:var(--text-dim);opacity:.4}
 .link-editor .le-emoji{max-width:28px;text-align:center;font-size:.95rem}
 .link-editor .le-img{flex:.55;font-size:.65rem}
-.link-remove{width:22px;height:22px;border-radius:50%;border:none;background:transparent;color:var(--text-dim);font-size:.7rem;cursor:pointer;transition:all .25s var(--ease-spring),background .2s var(--ease-smooth);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.link-remove{width:22px;height:22px;border-radius:50%;border:none;background:transparent;color:var(--text-dim);font-size:.7rem;cursor:pointer;transition:background-color .2s var(--ease-smooth),color .2s var(--ease-smooth);flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .link-remove:hover{background:rgba(255,60,60,.12);color:#ff5a5a}
-.btn-sm{padding:.4rem .8rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;font-family:inherit;font-weight:500;cursor:pointer;transition:all .28s var(--ease-spring),background .2s var(--ease-smooth),box-shadow .2s var(--ease-smooth);align-self:flex-start}
+.btn-sm{padding:.4rem .8rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;font-family:inherit;font-weight:500;cursor:pointer;transition:background-color .2s var(--ease-smooth),border-color .2s var(--ease-smooth),color .2s var(--ease-smooth),transform .28s var(--ease-spring),box-shadow .2s var(--ease-smooth);align-self:flex-start}
 .btn-sm:hover{background:var(--surface-hover-rgba);color:var(--text);border-color:var(--border-strong);box-shadow:0 0 12px var(--accent-glow);transform:translateY(-1px)}
 
 /* ── Responsive */
@@ -449,7 +461,7 @@ body{
 .ai-methodology.open .ai-methodology-card{transform:translateY(0) scale(1)}
 .ai-methodology-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;padding-bottom:.6rem;border-bottom:1px solid var(--border)}
 .ai-methodology-head h3{margin:0;font-size:.92rem;font-weight:600;color:var(--text);letter-spacing:-.01em}
-.ai-methodology-head button{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s var(--ease-spring)}
+.ai-methodology-head button{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);font-size:.75rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background-color .25s var(--ease-smooth),border-color .25s var(--ease-smooth),color .25s var(--ease-smooth)}
 .ai-methodology-head button:hover{background:var(--surface-hover-rgba);color:var(--text);border-color:var(--accent)}
 .ai-methodology-body{font-size:.78rem;line-height:1.55;color:var(--text-dim)}
 .ai-methodology-body p{margin:.5rem 0}
@@ -458,3 +470,38 @@ body{
 .ai-methodology-body strong{color:var(--text);font-weight:600}
 .ai-methodology-body em{color:var(--text);font-style:italic}
 .ai-methodology-foot{font-size:.7rem;opacity:.65;margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--border)}
+
+/* ══════════════════════════════════════════════════
+   Accessibility & new controls (v1.10)
+   ══════════════════════════════════════════════════ */
+
+/* Weather-location inputs in settings */
+.coord-input{flex:1;min-width:0;padding:.45rem .6rem;border-radius:var(--rs);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:.75rem;font-family:inherit;outline:none;transition:border-color .25s var(--ease-smooth),box-shadow .25s var(--ease-smooth)}
+.coord-input:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-glow)}
+.coord-input::placeholder{color:var(--text-dim);opacity:.4}
+
+/* Visible keyboard-focus rings — the drawer is fully keyboard-navigable
+   (/, arrows, Enter) but had no focus indicator on most controls */
+.drawer-tab:focus-visible,
+.drawer-btn:focus-visible,
+.filter-chip:focus-visible,
+.theme-btn:focus-visible,
+.engine-btn:focus-visible,
+.upload-btn:focus-visible,
+.btn-sm:focus-visible,
+.settings-toggle:focus-visible,
+.settings-close:focus-visible,
+.link-remove:focus-visible,
+.mode-tag:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accent)}
+
+/* Respect the OS "reduce motion" preference: keep state changes
+   instant, stop the ambient orb drift */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001s !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001s !important;
+    transition-delay:0s !important;
+  }
+  .glass-orb{animation:none}
+}

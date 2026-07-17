@@ -1,18 +1,36 @@
 /* ════════════════════════════════════════════════════════════════════
    Horizon AI Signal — SERP content script
-   v2.0.7 — Reverted to v1.7.8 SELECTORS engine (known working),
-            kept v2.0.x UI (click-to-expand panel inside badge).
+   v2.1 — Storage split + live rescoring + observer batching.
+          SELECTORS engine unchanged from v1.7.8 (known working).
+
+   Changes vs v2.0.7:
+   • Dismissals + user marks moved to their own sync key ("hzAI").
+     They used to live inside the main "hz" settings object, which the
+     new-tab page rewrites without them — so changing ANY setting wiped
+     every dismissed domain. Split key + read-modify-write fixes it.
+   • Settings changes now actually apply live: changing sensitivity or
+     hide-threshold clears the per-card done flags and rescores. (The
+     old rescan was a no-op because every card was already marked done.)
+   • "✓ Human / ✗ AI" marks now persist visually across reloads, and a
+     domain you marked Human is never auto-collapsed by the threshold.
+   • MutationObserver batches added nodes into one rAF pass instead of
+     scoring inside the mutation callback (Google mutates constantly).
+   • Observer disconnects while the feature is off.
+   • console.log spam gated behind DEBUG.
    ════════════════════════════════════════════════════════════════════ */
 
 (function () {
   "use strict";
-  console.log("[AI Signal] content script loaded on", location.hostname, location.pathname);
 
-  const DISMISS_KEY = "***";
-  const STORAGE_KEY = "hz";
+  const DEBUG = false;
+  const log = (...a) => { if (DEBUG) console.log("[AI Signal]", ...a); };
+
+  const STORAGE_KEY = "hz";    // main settings — owned by the new tab page (read-only here)
+  const AI_STORE_KEY = "hzAI"; // dismissals + user marks — owned by this script
 
   /* ──────────────────────────────────────────────────────────────────
      Selector library — verified working on Google, DDG, Brave SERPs
+     (unchanged from v1.7.8)
      ────────────────────────────────────────────────────────────────── */
   const SELECTORS = {
     google: {
@@ -56,47 +74,93 @@
   }
 
   const engine = detectEngine();
-  console.log("[AI Signal] engine:", engine);
-  if (!engine) {
-    console.log("[AI Signal] unsupported host, bailing");
-    return;
-  }
+  log("engine:", engine, "on", location.hostname + location.pathname);
+  if (!engine) return;
 
   const DEFAULT_PREFS = {
     aiSignal: false,
     aiSensitivity: "med",
     aiHideAbove: 0,
-    aiDismissed: {},
-    aiUserMarks: {},
   };
 
   let prefs = { ...DEFAULT_PREFS };
+  let aiStore = { aiDismissed: {}, aiUserMarks: {} };
+
+  function readPrefs(s) {
+    return {
+      aiSignal: !!s.aiSignal,
+      aiSensitivity: s.aiSensitivity || "med",
+      aiHideAbove: parseInt(s.aiHideAbove, 10) || 0,
+    };
+  }
+
+  function applyCalibration() {
+    if (typeof AIScore !== "undefined") AIScore.setCalibration(prefs.aiSensitivity);
+  }
 
   function loadPrefs() {
     try {
-      chrome.storage.sync.get([STORAGE_KEY], (data) => {
-        console.log("[AI Signal] storage raw:", data);
+      chrome.storage.sync.get([STORAGE_KEY, AI_STORE_KEY], (data) => {
         const s = (data && data[STORAGE_KEY]) || {};
-        prefs = { ...DEFAULT_PREFS, ...s };
-        console.log("[AI Signal] prefs resolved:", prefs);
-        if (typeof AIScore !== "undefined") {
-          AIScore.setCalibration(prefs.aiSensitivity);
+        prefs = readPrefs(s);
+        const st = (data && data[AI_STORE_KEY]) || {};
+        aiStore = { aiDismissed: st.aiDismissed || {}, aiUserMarks: st.aiUserMarks || {} };
+
+        // One-time migration: dismissals used to live inside "hz".
+        const legacyDismissed = s.aiDismissed && Object.keys(s.aiDismissed).length;
+        const legacyMarks = s.aiUserMarks && Object.keys(s.aiUserMarks).length;
+        if (legacyDismissed || legacyMarks) {
+          aiStore = {
+            aiDismissed: { ...(s.aiDismissed || {}), ...aiStore.aiDismissed },
+            aiUserMarks: { ...(s.aiUserMarks || {}), ...aiStore.aiUserMarks },
+          };
+          try { chrome.storage.sync.set({ [AI_STORE_KEY]: aiStore }); } catch (e) { /* no-op */ }
+          // We never rewrite "hz" from here — the new tab page owns it,
+          // and its next save naturally drops the legacy keys.
         }
-        rescanAll();
+
+        log("prefs:", prefs, "store:", aiStore);
+        applyCalibration();
+        syncScanState();
       });
     } catch (e) {
-      console.log("[AI Signal] storage error:", e);
+      log("storage error:", e);
     }
+  }
+
+  /* Persist dismissals/marks with read-modify-write so two SERP tabs
+     can't clobber each other's changes. */
+  function persistAiStore() {
+    try {
+      chrome.storage.sync.get([AI_STORE_KEY], (data) => {
+        const cur = (data && data[AI_STORE_KEY]) || {};
+        aiStore = {
+          aiDismissed: { ...(cur.aiDismissed || {}), ...aiStore.aiDismissed },
+          aiUserMarks: { ...(cur.aiUserMarks || {}), ...aiStore.aiUserMarks },
+        };
+        try { chrome.storage.sync.set({ [AI_STORE_KEY]: aiStore }); } catch (e) { /* no-op */ }
+      });
+    } catch (e) { /* no-op */ }
   }
 
   try {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "sync" || !changes[STORAGE_KEY]) return;
-      prefs = { ...DEFAULT_PREFS, ...(changes[STORAGE_KEY].newValue || {}) };
-      if (typeof AIScore !== "undefined") {
-        AIScore.setCalibration(prefs.aiSensitivity);
+      if (area !== "sync") return;
+      if (changes[STORAGE_KEY]) {
+        const next = readPrefs(changes[STORAGE_KEY].newValue || {});
+        if (next.aiSignal !== prefs.aiSignal ||
+            next.aiSensitivity !== prefs.aiSensitivity ||
+            next.aiHideAbove !== prefs.aiHideAbove) {
+          prefs = next;
+          applyCalibration();
+          resetAndRescan(); // scores/thresholds changed → rescore everything
+        }
       }
-      rescanAll();
+      if (changes[AI_STORE_KEY]) {
+        const st = changes[AI_STORE_KEY].newValue || {};
+        aiStore = { aiDismissed: st.aiDismissed || {}, aiUserMarks: st.aiUserMarks || {} };
+        applyDismissals(); // cheap: just hide badges on dismissed domains
+      }
     });
   } catch (e) { /* no-op */ }
 
@@ -136,7 +200,7 @@
   }
 
   /* ──────────────────────────────────────────────────────────────────
-     Extract data from a result card
+     Extract data from a result card (unchanged)
      ────────────────────────────────────────────────────────────────── */
   function extractResultData(card, sel) {
     let url = "";
@@ -182,13 +246,10 @@
 
   /* ──────────────────────────────────────────────────────────────────
      Skip AI Overview / "What people are saying" / discussion cards
+     (unchanged, minus an unused innerHTML read)
      ────────────────────────────────────────────────────────────────── */
   function shouldSkipCard(card) {
     const text = card.textContent || "";
-    const html = card.innerHTML || "";
-
-    // Per-URL dismissal (shift+click on the dismiss button)
-    if (prefs.aiDismissedUrls && prefs.aiDismissedUrls.includes(location.href)) return true;
 
     // No meaningful <h3> link -> can't attribute the score to a URL
     const h3 = card.querySelector("h3");
@@ -258,11 +319,12 @@
     badge.className = "hz-ai-badge";
     badge.dataset.band = band;
     badge.dataset.hostname = hostname;
-    if (location && location.href) card.dataset.hzUrl = location.href;
 
     badge.innerHTML = `
-      <span class="hz-ai-dot" aria-hidden="true"></span>
-      <span class="hz-ai-pct">${score.overall}%</span>
+      <span class="hz-ai-head" aria-hidden="true">
+        <span class="hz-ai-dot"></span>
+        <span class="hz-ai-pct">${score.overall}%</span>
+      </span>
       <button class="hz-ai-dismiss" type="button" aria-label="Dismiss" title="Hide for this domain">✕</button>
       <div class="hz-ai-panel">
         <div class="hz-panel-header">
@@ -280,6 +342,12 @@
         </div>
       </div>
     `;
+
+    // A previously saved "✓ Human / ✗ AI" mark persists across reloads.
+    const savedMark = aiStore.aiUserMarks && aiStore.aiUserMarks[hostname];
+    if (savedMark === "human" || savedMark === "ai") {
+      applyMarkToBadge(badge, savedMark);
+    }
 
     // Walk past the flipped title span.
     //   • Do NOT insert inside the title’s <a> (would trigger
@@ -315,7 +383,7 @@
     }
     parent.insertBefore(badge, (after && after.nextSibling) || null);
 
-// Click badge to expand panel.
+    // Click badge to expand panel.
     // Use pointerdown in CAPTURE phase so we beat any Google mousedown/
     // click handlers attached higher up the tree (Google Analytics,
     // instant-navigation, etc. all listen on document/window).
@@ -366,45 +434,57 @@
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      markDomain(hostname, "human", badge);
+      markDomain(hostname, "human");
     }, true);
     badge.querySelector(".hz-btn-ai").addEventListener("pointerdown", (e) => {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
-      markDomain(hostname, "ai", badge);
+      markDomain(hostname, "ai");
     }, true);
   }
 
+  function applyMarkToBadge(badge, mark) {
+    const foot = badge.querySelector(".hz-panel-foot");
+    if (foot) {
+      foot.textContent = `You marked this as ${mark === "human" ? "Human" : "AI"}`;
+      foot.style.color = mark === "human" ? "#22c55e" : "#ef4444";
+    }
+  }
+
   function dismissForDomain(hostname) {
-    prefs.aiDismissed = prefs.aiDismissed || {};
-    prefs.aiDismissed[hostname] = true;
-    try {
-      chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
-    } catch (err) { /* no-op */ }
+    aiStore.aiDismissed = aiStore.aiDismissed || {};
+    aiStore.aiDismissed[hostname] = true;
+    persistAiStore();
 
     document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
       const b = c.querySelector(".hz-ai-badge");
       if (b) b.remove();
+      c.classList.remove("hz-ai-collapsed");
     });
   }
 
-  function markDomain(hostname, mark, sourceBadge) {
-    prefs.aiUserMarks = prefs.aiUserMarks || {};
-    prefs.aiUserMarks[hostname] = mark;
-    try {
-      chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
-    } catch (err) { /* no-op */ }
+  function markDomain(hostname, mark) {
+    aiStore.aiUserMarks = aiStore.aiUserMarks || {};
+    aiStore.aiUserMarks[hostname] = mark;
+    persistAiStore();
 
     document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
       const b = c.querySelector(".hz-ai-badge");
-      if (!b) return;
-      const foot = b.querySelector(".hz-panel-foot");
-      if (foot) {
-        foot.textContent = `You marked this as ${mark === 'human' ? 'Human' : 'AI'}`;
-        foot.style.color = mark === 'human' ? '#22c55e' : '#ef4444';
-      }
+      if (b) applyMarkToBadge(b, mark);
+      if (mark === "human") c.classList.remove("hz-ai-collapsed");
     });
+  }
+
+  function applyDismissals() {
+    const dismissed = aiStore.aiDismissed || {};
+    for (const hostname of Object.keys(dismissed)) {
+      document.querySelectorAll(`[data-hz-hostname="${cssEscape(hostname)}"]`).forEach((c) => {
+        const b = c.querySelector(".hz-ai-badge");
+        if (b) b.remove();
+        c.classList.remove("hz-ai-collapsed");
+      });
+    }
   }
 
   /* ──────────────────────────────────────────────────────────────────
@@ -431,7 +511,7 @@
     card.dataset.hzHostname = data.hostname;
     card.dataset.hzAIDone = "1";
 
-    if (prefs.aiDismissed && prefs.aiDismissed[data.hostname]) {
+    if (aiStore.aiDismissed && aiStore.aiDismissed[data.hostname]) {
       return;
     }
 
@@ -440,15 +520,16 @@
     try {
       score = AIScore.score(text, { url: data.url });
     } catch (e) {
-      console.log("[AI Signal] scoring error:", e);
+      log("scoring error:", e);
       return;
     }
 
-    console.log("[AI Signal] scored:", data.hostname, score.overall + "%", bandLabel(bandFor(score.overall)));
+    log("scored:", data.hostname, score.overall + "%", bandLabel(bandFor(score.overall)));
 
     injectBadge(card, score, data.hostname);
 
-    if (prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {
+    const markedHuman = aiStore.aiUserMarks && aiStore.aiUserMarks[data.hostname] === "human";
+    if (!markedHuman && prefs.aiHideAbove > 0 && score.overall >= prefs.aiHideAbove) {
       card.classList.add("hz-ai-collapsed");
     }
   }
@@ -458,8 +539,7 @@
      ────────────────────────────────────────────────────────────────── */
   function rescanAll() {
     if (!prefs.aiSignal) {
-      document.querySelectorAll(".hz-ai-badge").forEach((b) => b.remove());
-      document.querySelectorAll(".hz-ai-collapsed").forEach((c) => c.classList.remove("hz-ai-collapsed"));
+      clearAllBadges();
       return;
     }
     const sel = SELECTORS[engine];
@@ -472,39 +552,86 @@
       cards = Array.from(candidates).filter((el) => el.querySelector("h3") || el.querySelector("a[href^='http']"));
     }
 
-    console.log("[AI Signal] rescanning", cards.length, "cards on", engine);
+    log("rescanning", cards.length, "cards on", engine);
     cards.forEach(processCard);
   }
 
+  function clearAllBadges() {
+    document.querySelectorAll(".hz-ai-badge").forEach((b) => b.remove());
+    document.querySelectorAll(".hz-ai-collapsed").forEach((c) => c.classList.remove("hz-ai-collapsed"));
+  }
+
+  /* Settings changed → wipe done-flags and rescore from scratch. */
+  function resetAndRescan() {
+    document.querySelectorAll("[data-hz-ai-done]").forEach((c) => { delete c.dataset.hzAIDone; });
+    clearAllBadges();
+    syncScanState();
+  }
+
+  /* Turn scanning machinery on/off to match the pref. */
+  function syncScanState() {
+    if (prefs.aiSignal) {
+      startObserver();
+      rescanAll();
+    } else {
+      stopObserver();
+      clearAllBadges();
+    }
+  }
+
   /* ──────────────────────────────────────────────────────────────────
-     Mutation observer — re-scan when Google inserts new results
+     Mutation observer — batch added nodes into one rAF pass.
+     Google's SERP mutates constantly (prefetch, viewport tracking…);
+     scoring inside the observer callback caused long tasks.
      ────────────────────────────────────────────────────────────────── */
   let observer = null;
+  const pendingNodes = new Set();
+  let flushScheduled = false;
+
+  function flushPending() {
+    flushScheduled = false;
+    if (!prefs.aiSignal) { pendingNodes.clear(); return; }
+    const sel = SELECTORS[engine];
+    if (!sel) { pendingNodes.clear(); return; }
+    const nodes = Array.from(pendingNodes);
+    pendingNodes.clear();
+    for (const n of nodes) {
+      if (!n.isConnected) continue;
+      if (n.matches && n.matches(sel.result)) processCard(n);
+      if (n.querySelectorAll) n.querySelectorAll(sel.result).forEach(processCard);
+    }
+  }
+
   function startObserver() {
     if (observer) return;
     const root = document.body || document.documentElement;
     observer = new MutationObserver((mutations) => {
       if (!prefs.aiSignal) return;
-      const sel = SELECTORS[engine];
-      if (!sel) return;
+      let queued = false;
       for (const m of mutations) {
         if (!m.addedNodes || !m.addedNodes.length) continue;
         for (const n of m.addedNodes) {
           if (n.nodeType !== 1) continue;
-          if (n.matches && n.matches(sel.result)) {
-            processCard(n);
-            continue;
-          }
-          if (engine === "google" && n.matches && n.matches("#rso > div")) {
-            n.querySelectorAll(sel.result).forEach(processCard);
-            continue;
-          }
-          const inner = n.querySelectorAll ? n.querySelectorAll(sel.result) : [];
-          inner.forEach(processCard);
+          pendingNodes.add(n);
+          queued = true;
         }
+      }
+      if (queued && !flushScheduled) {
+        flushScheduled = true;
+        requestAnimationFrame(flushPending);
       }
     });
     observer.observe(root, { childList: true, subtree: true });
+    log("observer started");
+  }
+
+  function stopObserver() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+      log("observer stopped");
+    }
+    pendingNodes.clear();
   }
 
   /* ──────────────────────────────────────────────────────────────────
@@ -519,23 +646,10 @@
   }, true);
 
   /* ──────────────────────────────────────────────────────────────────
-     Boot
+     Methodology modal (in-page, self-contained)
      ────────────────────────────────────────────────────────────────── */
-  loadPrefs();
-  setTimeout(() => { console.log("[AI Signal] first rescan"); rescanAll(); }, 400);
-  setTimeout(() => { console.log("[AI Signal] second rescan"); rescanAll(); }, 1200);
-  startObserver();
-  console.log("[AI Signal] observer started");
-})();
-
-  /* ── Methodology modal (in-page, self-contained)
-     ────────────────────────────────────────────────────────────────────
-     When the user clicks "How this works" inside an expanded pill,
-     we render the methodology modal directly into the page — no
-     round-trip to the new tab needed. Same content the new tab's
-     methodology modal shows, condensed for in-page use. */
   let _methodologyModal = null;
-  function showMethodologyModal(){
+  function showMethodologyModal() {
     if (_methodologyModal) { _methodologyModal.remove(); _methodologyModal = null; }
     const root = document.createElement('div');
     root.className = 'hz-method-modal';
@@ -550,11 +664,11 @@
 
         <h4>What we look at</h4>
         <ul>
-          <li><strong>Sentence-length uniformity.</strong> AI prose tends to have very consistent sentence lengths; humans are burstier.</li>
-          <li><strong>Em-dash + transition density.</strong> AI leans heavily on — plus words like <em>Furthermore</em>, <em>Moreover</em>, <em>Additionally</em>, <em>In conclusion</em>.</li>
-          <li><strong>Vocabulary distribution.</strong> Phrases like <em>delve into</em>, <em>comprehensive guide</em>, <em>actionable insights</em>, <em>digital landscape</em> are flag-weighted.</li>
-          <li><strong>Author / byline signal.</strong> Self-disclosure (“as an AI”) or missing byline tips the score up.</li>
-          <li><strong>Domain signal.</strong> URL shape (TLD, hyphen slug, date-stamped path) combined with a small whitelist of known publications.</li>
+          <li><strong>Weighted phrase lexicon.</strong> Phrases like <em>delve into</em>, <em>navigate the complexities</em>, <em>in today's digital landscape</em> are flag-weighted, each capped so repetition can't max the score.</li>
+          <li><strong>Structure.</strong> Sentence-length uniformity, “Firstly… Secondly… Finally” scaffolding, repeated sentence starts, transition-word density, em-dash density.</li>
+          <li><strong>Length normalization.</strong> Evidence is measured as a density per ~45 words, so long text doesn't inflate and short snippets don't starve.</li>
+          <li><strong>Author / byline signal.</strong> A visible named byline is a human signal; self-disclosure (“AI-generated”) is a near-certain AI signal. A missing byline is <em>not</em> penalized.</li>
+          <li><strong>Domain signal.</strong> URL shape (TLD, hyphen slug) plus a curated list of human-edited publications, matched on the parsed hostname.</li>
         </ul>
 
         <h4>What it can’t do</h4>
@@ -564,7 +678,7 @@
           <li>No detection of AI images, AI audio, or AI video.</li>
         </ul>
 
-        <p class="hz-method-foot">Score thresholds: low &lt;35 · medium 35–65 · high &gt;65. Defaults tuned to under-flag at medium sensitivity.</p>
+        <p class="hz-method-foot">Score bands: Human-like &lt;35 · Mixed 35–64 · Likely AI ≥65. Sensitivity bends the curve — Low compresses mid scores so only extreme evidence flags; High stretches them upward.</p>
       </div>
     `;
     document.body.appendChild(root);
@@ -581,10 +695,19 @@
         close();
       }
     }, true);
-    document.addEventListener('keydown', function onEsc(e){
+    document.addEventListener('keydown', function onEsc(e) {
       if (e.key === 'Escape' && _methodologyModal) {
         _methodologyModal.remove(); _methodologyModal = null;
         document.removeEventListener('keydown', onEsc, true);
       }
     }, true);
   }
+
+  /* ──────────────────────────────────────────────────────────────────
+     Boot
+     ────────────────────────────────────────────────────────────────── */
+  loadPrefs();
+  // Late-render safety nets: SERPs hydrate results after document_idle.
+  setTimeout(rescanAll, 400);
+  setTimeout(rescanAll, 1200);
+})();

@@ -1,20 +1,109 @@
 /* ════════════════════════════════════════════════════════════════════
    Horizon AI Signal — Background Service Worker
-   Handles cross-origin fetches the content script can't make directly.
 
-   SECURITY MODEL (v3.1):
-     The Google Safe Browsing API requires an API key. In v2.x the
-     key was hardcoded in this file, which put it in PUBLIC GIT
-     HISTORY. GitHub's secret scanner flagged it; the key had to
-     be rotated. The right pattern for a client-side extension is:
-       - The user provides their own key via the extension's
-         settings page.
-       - The key is stored in chrome.storage.sync (per-browser
-         sync, never bundled with the extension).
-       - It is applied at request time, never committed to source.
-     If the user has not provided a key, the Safe Browsing check
-     is skipped silently — no network call, no warning spam.
+   Two jobs:
+
+   1. DYNAMIC PAGE-DETECTOR REGISTRATION (new in v2.1)
+      The in-page detector used to be a static <all_urls> content
+      script — ~65 KB of JS+CSS injected into every page the user
+      visited, whether or not they wanted it (and the README promised
+      the opposite). It's now registered dynamically, only when BOTH:
+        • the user turns on "Page detector" in settings, and
+        • the optional <all_urls> host permission is granted.
+      Turning the setting off (or revoking the permission) unregisters
+      the script. SERP badges are unaffected — they stay as a static
+      content script scoped to the three search engines.
+
+   2. SAFE BROWSING RELAY
+      Handles cross-origin fetches the content script can't make.
+
+      SECURITY MODEL (v3.1):
+        The Google Safe Browsing API requires an API key. In v2.x the
+        key was hardcoded in this file, which put it in PUBLIC GIT
+        HISTORY. GitHub's secret scanner flagged it; the key had to
+        be rotated. The right pattern for a client-side extension is:
+          - The user provides their own key via the extension's
+            settings page.
+          - The key is stored in chrome.storage.sync (per-browser
+            sync, never bundled with the extension).
+          - It is applied at request time, never committed to source.
+        If the user has not provided a key, the Safe Browsing check
+        is skipped silently — no network call, no warning spam.
    ════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────────
+   1. Dynamic page-detector registration
+   ────────────────────────────────────────────────────────────────── */
+const DETECTOR_SCRIPT_ID = "hz-page-detector";
+const SERP_MATCHES = [
+  "*://*.google.com/search*",
+  "*://*.duckduckgo.com/*",
+  "*://search.brave.com/search*",
+];
+
+async function detectorRegistered() {
+  try {
+    const scripts = await chrome.scripting.getRegisteredContentScripts({ ids: [DETECTOR_SCRIPT_ID] });
+    return !!(scripts && scripts.length);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function hasAllUrlsPermission() {
+  try {
+    return await chrome.permissions.contains({ origins: ["<all_urls>"] });
+  } catch (e) {
+    return false;
+  }
+}
+
+async function syncDetectorRegistration() {
+  if (!chrome.scripting || !chrome.scripting.registerContentScripts) return;
+
+  let enabled = false;
+  try {
+    const r = await chrome.storage.sync.get(["hz"]);
+    enabled = !!(r && r.hz && r.hz.aiPageDetector);
+  } catch (e) { /* default off */ }
+
+  const want = enabled && (await hasAllUrlsPermission());
+  const have = await detectorRegistered();
+
+  try {
+    if (want && !have) {
+      await chrome.scripting.registerContentScripts([{
+        id: DETECTOR_SCRIPT_ID,
+        js: ["aiscan/score.js", "aiscan/detector.js"],
+        css: ["aiscan/badge.css"],
+        matches: ["<all_urls>"],
+        excludeMatches: SERP_MATCHES,
+        runAt: "document_idle",
+        persistAcrossSessions: true,
+      }]);
+      console.log("[Horizon] Page detector registered");
+    } else if (!want && have) {
+      await chrome.scripting.unregisterContentScripts({ ids: [DETECTOR_SCRIPT_ID] });
+      console.log("[Horizon] Page detector unregistered");
+    }
+  } catch (err) {
+    console.error("[Horizon] detector registration failed:", err);
+  }
+}
+
+chrome.runtime.onInstalled.addListener(syncDetectorRegistration);
+if (chrome.runtime.onStartup) chrome.runtime.onStartup.addListener(syncDetectorRegistration);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && changes.hz) syncDetectorRegistration();
+});
+if (chrome.permissions && chrome.permissions.onAdded) chrome.permissions.onAdded.addListener(syncDetectorRegistration);
+if (chrome.permissions && chrome.permissions.onRemoved) chrome.permissions.onRemoved.addListener(syncDetectorRegistration);
+// Also reconcile whenever the worker wakes up.
+syncDetectorRegistration();
+
+/* ──────────────────────────────────────────────────────────────────
+   2. Safe Browsing relay
+   ────────────────────────────────────────────────────────────────── */
 
 // In-memory cache so we don't hammer the Safe Browsing API for the
 // same hostname within an hour.
@@ -92,5 +181,3 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   sendResponse({ ok: false, reason: "no handler" });
   return true;
 });
-
-console.log("[AI Signal Background] Service worker loaded");

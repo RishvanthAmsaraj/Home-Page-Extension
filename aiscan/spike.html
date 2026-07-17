@@ -84,10 +84,10 @@ function renderCard(s){
     <div class="label">${s.label}</div>
     <div class="text">${s.text.replace(/</g,"&lt;")}</div>
     <div style="margin-top:.7rem"><span class="badge ${bandCls}">${bandLab}</span><span style="font-size:.65rem;color:var(--text-dim)">estimate</span></div>
-    <div class="row"><span class="name">Text patterns</span><span class="bar"><span class="fill" style="background:var(--bad);transform:scaleX:${r.text/100}"></span></span><span class="pct">${pct(r.text)}</span></div>
-    <div class="row"><span class="name">Author / byline</span><span class="bar"><span class="fill" style="background:var(--warn);transform:scaleX:${r.author/100}"></span></span><span class="pct">${pct(r.author)}</span></div>
-    <div class="row"><span class="name">Domain signals</span><span class="bar"><span class="fill" style="background:var(--accent);transform:scaleX:${r.domain/100}"></span></span><span class="pct">${pct(r.domain)}</span></div>
-    <div class="row overall"><span class="name" style="color:var(--text)">Overall</span><span class="bar"><span class="fill" style="background:var(--accent);transform:scaleX:${r.overall/100}"></span></span><span class="pct">${pct(r.overall)}</span></div>
+    <div class="row"><span class="name">Text patterns</span><span class="bar"><span class="fill" style="background:var(--bad);transform:scaleX(${r.text/100})"></span></span><span class="pct">${pct(r.text)}</span></div>
+    <div class="row"><span class="name">Author / byline</span><span class="bar"><span class="fill" style="background:var(--warn);transform:scaleX(${r.author/100})"></span></span><span class="pct">${pct(r.author)}</span></div>
+    <div class="row"><span class="name">Domain signals</span><span class="bar"><span class="fill" style="background:var(--accent);transform:scaleX(${r.domain/100})"></span></span><span class="pct">${pct(r.domain)}</span></div>
+    <div class="row overall"><span class="name" style="color:var(--text)">Overall</span><span class="bar"><span class="fill" style="background:var(--accent);transform:scaleX(${r.overall/100})"></span></span><span class="pct">${pct(r.overall)}</span></div>
     <div class="why"><strong>Why:</strong> ${r.reasons.slice(0,3).map(x=>`<code>${x}</code>`).join(" ")}</div>`;
   return div;
 }

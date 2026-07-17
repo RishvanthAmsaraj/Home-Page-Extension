@@ -2,7 +2,7 @@
 
 A minimal, beautiful, customizable new tab page for Chromium browsers (Brave, Chrome, Edge, Opera, etc.) and Firefox.
 
-Replace your browser's new tab with something that's actually nice to look at — clean typography, smooth animations, liquid glass effects, and useful info without the clutter. **~35 KB total**, zero dependencies.
+Replace your browser's new tab with something that's actually nice to look at — clean typography, smooth animations, liquid glass effects, and useful info without the clutter. **~200 KB of hand-written code**, zero dependencies.
 
 ## Features
 
@@ -15,7 +15,7 @@ Replace your browser's new tab with something that's actually nice to look at �
 - **🥃 Liquid glass effects** — subtle glass-morphism surfaces, floating orb animation
 - **✨ Smooth animations** — bouncy spring + smooth Apple curves, everything fades in and transitions buttery smooth
 - **🤖 AI Signal** *(beta)* — heuristic AI-likelihood score on Google / DuckDuckGo / Brave search results. Shows an "AI: NN%" badge per result, optionally hides high-AI ones. **Pure client-side. No API. No fetch of result pages.** [Read the methodology →](aiscan/spike.html)
-- **⚡ Blazing fast** — pure vanilla JS, no frameworks, ~125 KB total, zero dependencies
+- **⚡ Blazing fast** — pure vanilla JS, no frameworks, zero dependencies, one storage write per change (debounced + diffed)
 - **💾 Settings persist** — via `chrome.storage.sync`, syncs across devices
 
 ## Installation
@@ -36,6 +36,7 @@ Replace your browser's new tab with something that's actually nice to look at �
 3. Select the `manifest.json` file
 
 > Firefox falls back to `localStorage` if `chrome.storage.sync` isn't available in temporary add-ons.
+> The optional page detector needs Firefox 128+ (for `optional_host_permissions`).
 
 ### Orion
 
@@ -55,7 +56,10 @@ Click the **⚙️** button in the bottom-right to open the settings panel:
 - **Glass Intensity** — surface translucency slider
 - **Default Search Engine** — Pick from 8 search engines
 - **Default AI Provider** — Perplexity, Grok, Gemini, ChatGPT, Claude, or DeepSeek
+- **Weather Location** — set your own US coordinates for the NWS forecast (defaults to State College, PA)
 - **AI Signal** *(beta)* — toggle the search-result heuristic scorer, set sensitivity (Low/Med/High), set the hide-above threshold, read the methodology
+- **Page detector** *(optional, off by default)* — floating AI-likelihood pill (dot + percentage, expands to the full breakdown) on article pages you visit. Turning it on asks for permission to run on all sites; the text analysis is fully on-device
+- **Safe Browsing key** *(optional)* — supply your own Google Safe Browsing API key and the page detector will warn on flagged sites. Sends only the hostname to Google, only if a key is set
 - **Quick Links** — Add/edit/remove links with custom names, emojis, or uploaded images
 
 All settings auto-save and sync.
@@ -79,31 +83,37 @@ All settings auto-save and sync.
 
 **Three signals, combined:**
 
-- **Text patterns (65%)** — weighted lexicon of 30+ AI-isms (*"delve into"*, *"navigate the complexities"*, *"in today's digital landscape"*, *"it's important to note"*, …), plus sentence-length uniformity and em-dash density.
-- **Author / byline (15%)** — looks for named humans (`"By Jane Smith"`) in the snippet; penalizes self-disclosure (`"AI-generated"`).
-- **Domain signals (20%)** — URL shape (TLD, hyphen slug, date-stamped path) with a small whitelist of known human publications (NYT, Atlantic, Wired, etc.) that override the score downward.
+- **Text patterns (65%)** — a curated lexicon of ~80 AI-isms (*"delve into"*, *"navigate the complexities"*, *"in today's digital landscape"*, …), each capped so repetition can't max the score, plus sentence-length uniformity, *"Firstly… Secondly… Finally"* scaffolding, transition-word density and em-dash density. Evidence is normalized as a density per ~45 words, so long text doesn't inflate the score and short snippets don't starve it.
+- **Author / byline (15%)** — looks for named humans (`"By Jane Smith"`) in the snippet; self-disclosure (`"AI-generated"`) is a near-certain AI signal. A missing byline is **not** penalized — search engines truncate them constantly.
+- **Domain signals (20%)** — URL shape (TLD, hyphen slug) plus a curated list of human-edited publications (NYT, Atlantic, Wired, …) matched on the parsed hostname, which pulls the score downward. A separate deterministic trust score rates domain reputation.
 
-**Calibration.** Low (×0.55, only flag obvious) / Medium (×1.0, default) / High (×1.35, sensitive). The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.
+**Calibration.** The three sensitivities bend the score curve rather than multiplying it: **Low** compresses mid-range scores so only extreme evidence crosses the "Likely AI" line, **Medium** is the identity (default), **High** stretches scores upward. The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.
 
 **Calibration examples (medium sensitivity, title + snippet):**
 
 | Snippet | Score | Band |
 |---|---|---|
-| NYT investigative report on a donor network | 14% | Human-like |
-| Substack cooking post about burning a roux | 11% | Human-like |
-| Brené Brown personal essay | 11% | Human-like |
-| Wikipedia disambiguation page | 5% | Human-like |
-| SEO content farm listicle | 76% | Likely AI |
-| AI-tool review blog (multifaceted / comprehensive / actionable) | 79% | Likely AI |
+| Investigative news lede (records request, quotes) | 4% | Human-like |
+| Substack cooking post about burning a roux | 10% | Human-like |
+| Wikipedia-style neutral prose | 4% | Human-like |
+| Casual forum answer (Reddit) | 4% | Human-like |
+| Corporate press release (formal but human) | 9% | Human-like |
+| SEO marketing sludge ("in today's digital landscape…") | 71% | Likely AI |
+| AI listicle intro ("comprehensive guide… actionable strategies") | 69% | Likely AI |
+| ChatGPT-style explainer ("Firstly… Secondly… In conclusion") | 70% | Likely AI |
+
+*(Reproducible: `node aiscan/test-score.node.js` runs these fixtures at any sensitivity.)*
 
 **What it will NOT do.** It will not catch lightly-edited AI text. It will not catch a human who happens to write in a corporate / listicle style. It will not give you a definitive "this is AI" answer. Anyone who tells you they can do that from a browser extension is lying. [Read the full methodology →](aiscan/spike.html)
 
 ## Lightweight
 
-- **~125 KB** total for all files (CSS + JS + HTML + manifest + icons + screenshots)
+- **~200 KB** of code total (JS + CSS + HTML + manifest), ~315 KB installed with icons
+- The new tab page itself is ~90 KB; search pages load ~84 KB (scorer + badges); **other sites load 0 KB** unless you opt into the page detector
 - Zero frameworks, zero dependencies
 - Vanilla CSS/JS only — no React, no build step
-- The AI Signal module alone is ~20 KB; it's loaded only on Google / DDG / Brave search pages via `content_scripts`, not on every page
+- The AI Signal module is loaded **only** on Google / DDG / Brave search pages via `content_scripts` — never on every page
+- The optional page detector is registered dynamically (`chrome.scripting`) only after you enable it in settings and grant the permission; turn it off and the script is unregistered again
 
 ## License
 

@@ -1,42 +1,28 @@
 {
   "manifest_version": 3,
   "name": "Horizon Tab",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "A minimal, beautiful, customizable new tab page — your horizon, your way.",
   "chrome_url_overrides": {
     "newtab": "tab.html"
   },
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "scripting"],
+  "optional_host_permissions": ["<all_urls>"],
   "host_permissions": [
-    "*://*.google.com/search*",
-    "*://duckduckgo.com/*",
-    "*://search.brave.com/search*",
     "*://safebrowsing.googleapis.com/*"
   ],
   "background": {
-    "service_worker": "aiscan/background.js"
+    "service_worker": "aiscan/background.js",
+    "scripts": ["aiscan/background.js"]
   },
   "content_scripts": [
     {
       "matches": [
         "*://*.google.com/search*",
         "*://*.duckduckgo.com/*",
-        "*://search.brave.com/search*",
-    "*://safebrowsing.googleapis.com/*"
+        "*://search.brave.com/search*"
       ],
       "js": ["aiscan/score.js", "aiscan/content.js"],
-      "css": ["aiscan/badge.css"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": ["<all_urls>"],
-      "exclude_matches": [
-        "*://*.google.com/search*",
-        "*://*.duckduckgo.com/*",
-        "*://search.brave.com/search*",
-    "*://safebrowsing.googleapis.com/*"
-      ],
-      "js": ["aiscan/score.js", "aiscan/detector.js"],
       "css": ["aiscan/badge.css"],
       "run_at": "document_idle"
     }
@@ -48,7 +34,8 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "horizon-tab@rishvanthamsaraj"
+      "id": "horizon-tab@rishvanthamsaraj",
+      "strict_min_version": "128.0"
     }
   }
 }

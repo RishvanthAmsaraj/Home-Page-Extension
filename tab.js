@@ -81,12 +81,26 @@ const AI_FREE_PARAMS={
   google:"&udm=14",duckduckgo:"&ia=web",brave:"&source=web",
   bing:"&adlt=strict&qft=interval%3d%22%22",kagi:"&ai_mode=off",
 };
-function aiFreeURL(base,q,engine){
-  return base+encodeURIComponent(q)+(AI_FREE_PARAMS[engine]||"");
-}
 
-const TYPE_PARAMS={all:"",reddit:" site:reddit.com",article:"&tbm=nws",pdf:" filetype:pdf",video:"&tbm=vid",images:"&tbm=isch"};
+
+/* Filters, split by mechanism:
+     TYPE_TEXT  — search operators appended to the query text (encoded with it)
+     MEDIA_URL  — engine-specific News / Video / Images endpoints, %s = encoded query
+   v1 appended "&tbm=nws" to the query text and then encodeURIComponent'd
+   the whole thing, so the News/Video/Images filters literally searched
+   for the text "&tbm=nws" — and tbm is Google-only anyway. */
+const TYPE_TEXT={all:"",reddit:" site:reddit.com",pdf:" filetype:pdf"};
 const TYPE_L={all:"All",reddit:"Reddit",article:"News",pdf:"PDF",video:"Video",images:"Images"};
+const MEDIA_URL={
+  google:{article:"https://www.google.com/search?q=%s&tbm=nws",video:"https://www.google.com/search?q=%s&tbm=vid",images:"https://www.google.com/search?q=%s&tbm=isch"},
+  duckduckgo:{article:"https://duckduckgo.com/?q=%s&iar=news&ia=news",video:"https://duckduckgo.com/?q=%s&iax=videos&ia=videos",images:"https://duckduckgo.com/?q=%s&iax=images&ia=images"},
+  brave:{article:"https://search.brave.com/news?q=%s",video:"https://search.brave.com/videos?q=%s",images:"https://search.brave.com/images?q=%s"},
+  bing:{article:"https://www.bing.com/news/search?q=%s",video:"https://www.bing.com/videos/search?q=%s",images:"https://www.bing.com/images/search?q=%s"},
+  startpage:{article:"https://www.startpage.com/sp/search?query=%s&cat=news",video:"https://www.startpage.com/sp/search?query=%s&cat=video",images:"https://www.startpage.com/sp/search?query=%s&cat=images"},
+  kagi:{article:"https://kagi.com/news?q=%s",video:"https://kagi.com/videos?q=%s",images:"https://kagi.com/images?q=%s"},
+  qwant:{article:"https://www.qwant.com/?q=%s&t=news",video:"https://www.qwant.com/?q=%s&t=videos",images:"https://www.qwant.com/?q=%s&t=images"},
+  searxng:{article:"https://searx.be/search?q=%s&categories=news",video:"https://searx.be/search?q=%s&categories=videos",images:"https://searx.be/search?q=%s&categories=images"}
+};
 
 const DL=[
   {id:"l1",label:"ChatGPT",url:"https://chatgpt.com",emoji:"",image:"https://www.google.com/s2/favicons?domain=chatgpt.com&sz=64"},
@@ -101,56 +115,146 @@ const DS={
   theme:"slate",searchEngine:"google",aiProvider:"perplexity",
   links:DL,showLinks:true,glassOpacity:0.04,searchType:"all",
   customBg:"#0d0d0d",customAccent:"#7a8a9a",customLight:false,aiFreeOn:false,
-  aiSignal:false,aiSensitivity:"med",aiHideAbove:0
+  aiSignal:false,aiSensitivity:"med",aiHideAbove:0,
+  aiPageDetector:false,weatherLat:null,weatherLon:null
 };
 let state={...DS},linkId=100;
 
+/* ── Cached element lookups ──
+   Ids in the static tab.html shell are never re-created, so their
+   lookups are cached after first hit. Ids born inside renderSettings /
+   showMethodology are re-created every render and pass straight
+   through to an uncached lookup. */
+const STATIC_IDS=new Set(["bgLayer","glassOrb","greeting","time","date","weather","weatherIcon","weatherTemp","weatherDesc","weatherHiLo","searchSection","searchForm","searchInput","searchArrow","modeTag","searchBody","searchDrawer","drawerTabbar","drawerGrid","drawerFooter","filterBar","aiModeHint","links","settingsToggle","settingsBackdrop","settingsPanel","settingsTitle","settingsBody","settingsClose","bgUpload"]);
+const _elCache={};
+function $(id){
+  if(!STATIC_IDS.has(id))return document.getElementById(id);
+  return _elCache[id]||(_elCache[id]=document.getElementById(id));
+}
+
+/* ── Security helpers ── */
+function esc(s){return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+/* Only http(s) URLs come back from here — javascript:/data: links a user
+   (or imported settings) might put in a quick link are neutralized. */
+function safeHref(u){
+  const raw=String(u||"").trim();
+  try{const p=new URL(raw);if(p.protocol==="http:"||p.protocol==="https:")return p.href}catch{}
+  try{const p=new URL("https://"+raw.replace(/^\/+/,""));if(p.hostname.includes("."))return p.href}catch{}
+  return "#";
+}
+
 /* ── Storage ── */
 const SYS="hz",BG_KEY="***";
+const KNOWN_KEYS=["theme","searchEngine","aiProvider","links","showLinks","glassOpacity","searchType",
+  "customBg","customAccent","customLight","aiFreeOn","aiSignal","aiSensitivity","aiHideAbove",
+  "aiPageDetector","weatherLat","weatherLon"];
+let extraState={};      // keys under "hz" owned by other parts of the extension — preserved verbatim on save
+let lastSavedJSON="";   // diff guard: identical snapshots never hit storage (sync quota: 120 writes/min)
+let lastSavedBG=null;   // the bg data-URL (up to ~500 KB) is only written when it actually changes
+let saveTimer=null;
 
 async function loadState(){
   try{
     const s=await chrome.storage.sync.get([SYS]);
-    if(s[SYS])state={...DS,...s[SYS],links:s[SYS].links||DL};
+    if(s[SYS]){
+      state={...DS,...s[SYS],links:s[SYS].links||DL};
+      for(const k of Object.keys(s[SYS]))if(!KNOWN_KEYS.includes(k))extraState[k]=s[SYS][k];
+    }
   }catch{try{const s=localStorage.getItem(SYS);if(s)state={...DS,...JSON.parse(s),links:JSON.parse(s).links||DL}}catch{}}
   try{
     const b=await chrome.storage.local.get([BG_KEY]);
     if(b[BG_KEY])state.bg=b[BG_KEY];
   }catch{try{const b=localStorage.getItem(BG_KEY);if(b)state.bg=b}catch{}}
+  lastSavedBG=state.bg||null;
+  lastSavedJSON=JSON.stringify(snapshotState());
 }
+function snapshotState(){
+  const o={...extraState};
+  for(const k of KNOWN_KEYS)o[k]=state[k];
+  return o;
+}
+/* Debounced + diffed: rapid slider drags / typing coalesce into one
+   write 250 ms after the last change, and no-op saves don't write at
+   all. v1 wrote to chrome.storage.sync on every keystroke and every
+   slider pixel — hitting the 120 writes/min quota was easy. */
 function saveState(){
-  const o={theme:state.theme,searchEngine:state.searchEngine,aiProvider:state.aiProvider,
-    links:state.links,showLinks:state.showLinks,glassOpacity:state.glassOpacity,searchType:state.searchType,
-    customBg:state.customBg,customAccent:state.customAccent,customLight:state.customLight,aiFreeOn:state.aiFreeOn,
-    aiSignal:state.aiSignal,aiSensitivity:state.aiSensitivity,aiHideAbove:state.aiHideAbove};
-  const bg=state.bg;delete o.bg;
-  try{chrome.storage.sync.set({[SYS]:o})}catch{try{localStorage.setItem(SYS,JSON.stringify(o))}catch{}}
-  if(bg){try{chrome.storage.local.set({[BG_KEY]:bg})}catch{try{localStorage.setItem(BG_KEY,bg)}catch{}}}
-  else{try{chrome.storage.local.remove(BG_KEY)}catch{}}
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveStateNow,250);
 }
+function saveStateNow(){
+  clearTimeout(saveTimer);saveTimer=null;
+  const o=snapshotState(),j=JSON.stringify(o);
+  if(j!==lastSavedJSON){
+    lastSavedJSON=j;
+    try{const p=chrome.storage.sync.set({[SYS]:o});if(p&&p.catch)p.catch(()=>{})}
+    catch{try{localStorage.setItem(SYS,j)}catch{}}
+  }
+  const bg=state.bg||null;
+  if(bg!==lastSavedBG){
+    lastSavedBG=bg;
+    if(bg){try{const p=chrome.storage.local.set({[BG_KEY]:bg});if(p&&p.catch)p.catch(()=>{})}catch{try{localStorage.setItem(BG_KEY,bg)}catch{}}}
+    else{try{chrome.storage.local.remove(BG_KEY)}catch{}}
+  }
+}
+// A pending debounced save must not be lost when the tab navigates
+// (e.g. changing a filter and pressing Enter within 250 ms).
+window.addEventListener("pagehide",()=>{if(saveTimer)saveStateNow()});
 
 /* ── Clock ── */
 function greet(){return["good morning","good afternoon","good evening","good night"][Math.min(Math.floor(new Date().getHours()/6),3)]}
 function updateClock(){
   const n=new Date();
-  document.getElementById("time").textContent=`${n.getHours()%12||12}:${String(n.getMinutes()).padStart(2,"0")} ${n.getHours()>=12?"PM":"AM"}`;
-  document.getElementById("greeting").textContent=greet();
-  document.getElementById("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  $("time").textContent=`${n.getHours()%12||12}:${String(n.getMinutes()).padStart(2,"0")} ${n.getHours()>=12?"PM":"AM"}`;
+  $("greeting").textContent=greet();
+  $("date").textContent=n.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  if(state.theme==="modern"&&!state.bg)swModern(); // keep auto day/night correct on long-lived tabs
+}
+/* The display has minute resolution, so tick once per minute (aligned
+   to the minute boundary) instead of every second — 60× fewer wakeups.
+   visibilitychange re-syncs a tab restored from the background. */
+let clockTimer=null;
+function scheduleClock(){
+  clearTimeout(clockTimer);
+  updateClock();
+  const n=new Date();
+  clockTimer=setTimeout(scheduleClock,Math.max(250,(60-n.getSeconds())*1000-n.getMilliseconds()));
 }
 
 /* ── Weather ── */
+const WEATHER_KEY="hzWeather",WEATHER_TTL=10*60*1000;
+function weatherCoords(){
+  const lat=parseFloat(state.weatherLat),lon=parseFloat(state.weatherLon);
+  return Number.isFinite(lat)&&Number.isFinite(lon)?[lat,lon]:[LAT,LON];
+}
+function renderWeather(d){
+  $("weatherIcon").textContent=d.icon;
+  $("weatherTemp").textContent=d.temp;
+  $("weatherDesc").textContent=d.desc;
+  $("weatherHiLo").textContent=d.hilo;
+}
+/* Cached in chrome.storage.local: opening ten tabs in a row costs one
+   NWS round-trip, not ten. Stale data renders instantly, then refreshes
+   in the background. 8 s abort so a slow API never hangs the badge. */
 async function fetchWeather(){
+  const[lat,lon]=weatherCoords();
+  let cached=null;
+  try{const c=await chrome.storage.local.get([WEATHER_KEY]);cached=c[WEATHER_KEY]}catch{}
+  if(cached&&cached.lat===lat&&cached.lon===lon&&cached.d){
+    renderWeather(cached.d);
+    if(Date.now()-cached.t<WEATHER_TTL)return;
+  }
   try{
-    const p=await(await fetch(`https://api.weather.gov/points/${LAT},${LON}`)).json();
-    const f=await(await fetch(p.properties.forecast)).json(),ps=f.properties.periods;
+    const ac=new AbortController();const to=setTimeout(()=>ac.abort(),8000);
+    const p=await(await fetch(`https://api.weather.gov/points/${lat},${lon}`,{signal:ac.signal})).json();
+    const f=await(await fetch(p.properties.forecast,{signal:ac.signal})).json(),ps=f.properties.periods;
+    clearTimeout(to);
     const c=ps[0],nx=ps[1],t=c.temperature,d=c.isDaytime;
     let hi=nx&&nx.isDaytime?nx.temperature:t,lo=nx&&!nx.isDaytime?nx.temperature:t;
     if(!d){lo=t;const td=ps[2]&&ps[2].isDaytime?ps[2]:null;hi=td?td.temperature:nx?nx.temperature:t}
-    document.getElementById("weatherIcon").textContent=wi(c.shortForecast,d);
-    document.getElementById("weatherTemp").textContent=`${t}°`;
-    document.getElementById("weatherDesc").textContent=c.shortForecast;
-    document.getElementById("weatherHiLo").textContent=`H ${hi}° L ${lo}°`;
-  }catch{document.getElementById("weatherDesc").textContent="unavailable"}
+    const data={icon:wi(c.shortForecast,d),temp:`${t}°`,desc:c.shortForecast,hilo:`H ${hi}° L ${lo}°`};
+    renderWeather(data);
+    try{const pr=chrome.storage.local.set({[WEATHER_KEY]:{t:Date.now(),lat,lon,d:data}});if(pr&&pr.catch)pr.catch(()=>{})}catch{}
+  }catch{if(!cached)$("weatherDesc").textContent="unavailable"}
 }
 function wi(f,d){
   const F=f.toLowerCase();
@@ -172,7 +276,11 @@ function applyTheme(theme){
   if(theme==="custom"){applyCustomTheme();return}
   root.setAttribute("data-theme",theme);saveState();
 }
-function swModern(){document.documentElement.setAttribute("data-theme",new Date().getHours()>=6&&new Date().getHours()<20?"modern-day":"modern")}
+function swModern(){
+  const want=new Date().getHours()>=6&&new Date().getHours()<20?"modern-day":"modern";
+  const root=document.documentElement;
+  if(root.getAttribute("data-theme")!==want)root.setAttribute("data-theme",want);
+}
 function hexToRgb(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
 function luminance(r,g,b){return(0.299*r+0.587*g+0.114*b)/255}
 function applyCustomTheme(){
@@ -197,21 +305,26 @@ function applyBg(data){
   const img=new Image();
   img.onload=()=>{
     const lum=analyze(img),dark=lum<=.5,ov=dark?Math.min(.55,.35+lum*.4):Math.min(.6,.8-lum*.3),oc=dark?`rgba(0,0,0,${ov.toFixed(2)})`:`rgba(255,255,255,${ov.toFixed(2)})`;
-    const el=document.getElementById("bgLayer");el.style.setProperty("--user-bg",`url(${data})`);el.style.setProperty("--overlay-c",oc);el.classList.add("has-image");
-    document.getElementById("glassOrb").style.display="none";document.documentElement.setAttribute("data-theme",dark?"darkbg":"lightbg");document.documentElement.classList.add("has-bg");
+    const el=$("bgLayer");el.style.setProperty("--user-bg",`url(${data})`);el.style.setProperty("--overlay-c",oc);el.classList.add("has-image");
+    $("glassOrb").style.display="none";document.documentElement.setAttribute("data-theme",dark?"darkbg":"lightbg");document.documentElement.classList.add("has-bg");
     state.bg=data;saveState();
   };img.onerror=clearBg;img.src=data;
 }
 function clearBg(){
-  const el=document.getElementById("bgLayer");el.classList.remove("has-image");el.style.removeProperty("--user-bg");el.style.removeProperty("--overlay-c");
-  document.getElementById("glassOrb").style.display="";document.documentElement.classList.remove("has-bg");
+  const el=$("bgLayer");el.classList.remove("has-image");el.style.removeProperty("--user-bg");el.style.removeProperty("--overlay-c");
+  $("glassOrb").style.display="";document.documentElement.classList.remove("has-bg");
   const t=state.theme||"slate";if(t==="custom")applyCustomTheme();else if(t==="modern")swModern();else document.documentElement.setAttribute("data-theme",t);
   delete state.bg;saveState();
 }
 
 /* ── Links ── */
 function renderLinks(){
-  const linksEl=document.getElementById("links");linksEl.style.display=state.showLinks?"":"none";linksEl.innerHTML=state.links.map(l=>`<a href="${l.url}" class="link-item" title="${l.url}"><span class="link-icon">${l.image?`<img src="${l.image}" alt="" loading="lazy">`:l.emoji||"🌐"}</span><span class="link-label">${l.label}</span></a>`).join("");
+  const linksEl=$("links");linksEl.style.display=state.showLinks?"":"none";
+  linksEl.innerHTML=state.links.map(l=>{
+    const href=safeHref(l.url);
+    const icon=l.image?`<img src="${esc(l.image)}" alt="" loading="lazy">`:esc(l.emoji||"🌐");
+    return `<a href="${esc(href)}" class="link-item" title="${esc(l.url)}"><span class="link-icon">${icon}</span><span class="link-label">${esc(l.label)}</span></a>`;
+  }).join("");
 }
 
 /* ══════════════════════════════════════════════════
@@ -230,7 +343,7 @@ function svgIcon(key){return LOGOS[key]||LOGOS.google}
 
 /* ── Tag + drawer open/close ── */
 function updateModeTag(){
-  const tag=document.getElementById("modeTag");
+  const tag=$("modeTag");
   const icon = isAI() ? svgIcon(state.aiProvider)
                       : svgIcon(state.searchEngine);
   const label = isAI() ? AI_L[state.aiProvider]
@@ -240,20 +353,20 @@ function updateModeTag(){
   tag.innerHTML = icon + ' <span class="mode-label">' + label + '</span>';
 }
 function tagOnInput(){
-  const i=document.getElementById("searchInput");
+  const i=$("searchInput");
   // Compact the chip to icon-only while typing so the input gets more
   // room without losing the brand indicator entirely.
-  document.getElementById("modeTag").classList.toggle("compact",i.value.length>0);
+  $("modeTag").classList.toggle("compact",i.value.length>0);
 }
 
-function isDrawerOpen(){return document.getElementById("searchSection").classList.contains("open")}
+function isDrawerOpen(){return $("searchSection").classList.contains("open")}
 function openDrawer(){
-  document.getElementById("searchSection").classList.add("open");
+  $("searchSection").classList.add("open");
   // Drawer expands absolutely below the search row.
   // Links stay fixed — no layout push needed.
 }
 function closeDrawer(){
-  const sec=document.getElementById("searchSection");
+  const sec=$("searchSection");
   sec.classList.remove("open");
   sec.style.marginBottom=""; // restore resting margin (1rem from CSS)
 }
@@ -261,16 +374,7 @@ function toggleDrawer(){isDrawerOpen()?closeDrawer():openDrawer()}
 
 /* ── Tab bar ── */
 function renderTabs(){
-  const bar=document.getElementById("drawerTabbar");
-  bar.innerHTML='<button class="drawer-tab'+(isAI()?'':' active')+'" data-mode="web">Web Search</button><button class="drawer-tab'+(isAI()?' active':'')+'" data-mode="ai">AI Chat</button>';
-  bar.querySelectorAll(".drawer-tab").forEach(tab=>{
-    tab.addEventListener("click",e=>{
-      e.stopPropagation();
-      const mode=tab.dataset.mode;
-      if(mode==="web"&&isAI()){state.searchType="all";refreshUI()}
-      else if(mode==="ai"&&!isAI()){state.searchType="ai";refreshUI()}
-    });
-  });
+  $("drawerTabbar").innerHTML='<button class="drawer-tab'+(isAI()?'':' active')+'" data-mode="web">Web Search</button><button class="drawer-tab'+(isAI()?' active':'')+'" data-mode="ai">AI Chat</button>';
 }
 
 /* ── Render drawer grid ──
@@ -279,7 +383,7 @@ function renderTabs(){
      The 8 web search engines keep the auto-fill column layout. */
 function renderDrawer(){
   renderTabs();
-  const grid=document.getElementById("drawerGrid");
+  const grid=$("drawerGrid");
   const ai=isAI();
   const items=ai?AI_ORDER.map(k=>[k,AI_L[k],"ai",AI_AUTO.has(k)?"→ auto":"✎ prefill"]):Object.keys(SE).map(k=>[k,k.charAt(0).toUpperCase()+k.slice(1),"web","web"]);
   grid.classList.toggle("ai-grid",ai);
@@ -288,21 +392,12 @@ function renderDrawer(){
     return `<button class="drawer-btn${act?" active":""}" data-kind="${kind}" data-key="${key}"><span class="db-svg">${svgIcon(key)}</span><span class="db-name">${label}</span><span class="db-tag">${tag}</span></button>`;
   }).join("");
 
-  grid.querySelectorAll(".drawer-btn").forEach(btn=>{
-    btn.addEventListener("click",e=>{
-      e.stopPropagation();
-      const kind=btn.dataset.kind,key=btn.dataset.key;
-      if(kind==="web"){state.searchEngine=key;state.searchType="all";}
-      else{state.aiProvider=key;state.searchType="ai";}
-      refreshUI();
-    });
-  });
 }
 
 /* ── Filter bar + AI hint (inside drawer) ── */
 function renderFilterBar(){
-  const bar=document.getElementById("filterBar");
-  const hint=document.getElementById("aiModeHint");
+  const bar=$("filterBar");
+  const hint=$("aiModeHint");
   if(isAI()){
     bar.classList.remove("visible");
     const ap=state.aiProvider;const auto=AI_AUTO.has(ap);
@@ -311,17 +406,13 @@ function renderFilterBar(){
     return;
   }
   hint.classList.remove("active");
-  bar.innerHTML=Object.keys(TYPE_PARAMS).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
+  bar.innerHTML=Object.keys(TYPE_L).map(k=>`<button class="filter-chip${state.searchType===k?" active":""}" data-filter="${k}">${TYPE_L[k]}</button>`).join("")+
     `<button class="filter-chip aifree${state.aiFreeOn?" active":""}" id="aiFreeChip">AI-Free</button>`;
   bar.classList.add("visible");
-  bar.querySelectorAll(".filter-chip[data-filter]").forEach(chip=>{
-    chip.addEventListener("click",e=>{e.stopPropagation();state.searchType=chip.dataset.filter;renderFilterBar();saveState();updatePlaceholder()});
-  });
-  document.getElementById("aiFreeChip")?.addEventListener("click",e=>{e.stopPropagation();state.aiFreeOn=!state.aiFreeOn;renderFilterBar();saveState();updatePlaceholder()});
 }
 
 function updatePlaceholder(){
-  const i=document.getElementById("searchInput");
+  const i=$("searchInput");
   if(isAI()){
     i.placeholder=`Ask ${AI_L[state.aiProvider]||"AI"} anything...`;
   }else{
@@ -335,32 +426,54 @@ function refreshUI(){
 }
 
 /* ── Submit ── */
+/* URL detection: full URLs, bare domains ("github.com/user"),
+   localhost[:port] and IPv4 addresses navigate directly; everything
+   else searches. Bare domains only navigate when the last label is a
+   real, common TLD — so "node.js" or "vue.js" search (as intended)
+   while "svelte.dev" navigates.
+   v1 required the string to ALREADY start with http, so typing
+   "example.com" searched instead of navigating, and the localhost
+   branch was unreachable (it also demanded a dot). */
+const NAV_TLDS=new Set(("com net org edu gov mil int io ai co dev app me us uk ca de fr jp cn in au br ru ch nl se no dk fi es it pl eu info biz tv gg sh xyz tech site online store blog news wiki to ly fm am so gl cc ws nz ie at be pt cz gr kr mx za ar cl tw hk sg my ph th vn id tr sa ae il pk").split(" "));
+function navURL(q){
+  if(/\s/.test(q))return null;
+  if(/^https?:\/\//i.test(q)){try{return new URL(q).href}catch{return null}}
+  if(/^localhost(:\d{1,5})?([\/?#]|$)/i.test(q))return "http://"+q;
+  if(/^\d{1,3}(\.\d{1,3}){3}(:\d{1,5})?([\/?#]\S*)?$/.test(q))return "http://"+q;
+  const m=q.match(/^[\w-]+(\.[\w-]+)*\.([a-z]{2,24})(:\d{1,5})?([\/?#]\S*)?$/i);
+  if(m&&NAV_TLDS.has(m[2].toLowerCase())){
+    try{return new URL("https://"+q).href}catch{return null}
+  }
+  return null;
+}
 function submitSearch(q){
   if(!q)return;
   if(isAI()){
     window.location.href=(AI[state.aiProvider]||AI.perplexity)+encodeURIComponent(q);
     return;
   }
-  const base=SE[state.searchEngine]||SE.google;
-  if(q.includes(".")&&!q.includes(" ")&&(q.startsWith("http://")||q.startsWith("https://")||q.startsWith("localhost"))){
-    window.location.href=q.startsWith("http")?q:`https://${q}`;return;
-  }
-  let query=q+(TYPE_PARAMS[state.searchType]||"");
-  let url=state.aiFreeOn?aiFreeURL(base,query,state.searchEngine):base+encodeURIComponent(query);
+  const nav=navURL(q);
+  if(nav){window.location.href=nav;return}
+  const engine=state.searchEngine,type=state.searchType;
+  const enc=encodeURIComponent(q+(TYPE_TEXT[type]||""));
+  const media=MEDIA_URL[engine]&&MEDIA_URL[engine][type];
+  if(media){window.location.href=media.replace("%s",enc);return} // media tabs are already AI-overview-free
+  let url=(SE[engine]||SE.google)+enc;
+  if(state.aiFreeOn)url+=AI_FREE_PARAMS[engine]||"";
   window.location.href=url;
 }
 
 /* ══════════════════════════════════════════════════
    SETTINGS
    ══════════════════════════════════════════════════ */
-function openSettings(){document.getElementById("settingsPanel").classList.add("open");document.getElementById("settingsBackdrop").classList.add("open");renderSettings()}
-function closeSettings(){document.getElementById("settingsPanel").classList.remove("open");document.getElementById("settingsBackdrop").classList.remove("open")}
+function openSettings(){$("settingsPanel").classList.add("open");$("settingsBackdrop").classList.add("open");renderSettings()}
+function closeSettings(){$("settingsPanel").classList.remove("open");$("settingsBackdrop").classList.remove("open")}
 
 /* ── Methodology modal — shown when the user taps the "methodology"
      link in the AI Signal section of settings. We open a lightweight
      modal on top of the settings panel with full disclosure. */
 function showMethodology(){
-  let modal=document.getElementById("aiMethodologyModal");
+  let modal=$("aiMethodologyModal");
   if(!modal){
     modal=document.createElement("div");
     modal.id="aiMethodologyModal";
@@ -376,11 +489,11 @@ function showMethodology(){
           <p><strong>What it looks at.</strong> Each search result's title and snippet (the text Google / DuckDuckGo / Brave already shows you), plus the URL shape. We never fetch the article body — your browsing history stays yours.</p>
           <p><strong>Three signals, combined.</strong></p>
           <ul>
-            <li><strong>Text patterns</strong> (65% weight) — weighted lexicon of 30+ AI-isms ("delve into", "navigate the complexities", "in today's digital landscape", "it's important to note", etc.), plus sentence-length uniformity and em-dash density.</li>
+            <li><strong>Text patterns</strong> (65% weight) — a curated lexicon of ~80 AI-isms ("delve into", "navigate the complexities", "in today's digital landscape", etc.), each capped so repetition can't max the score, plus sentence-length uniformity, "Firstly…Secondly…Finally" scaffolding, transition-word and em-dash density. Evidence is normalized per ~45 words, so long text doesn't inflate the score.</li>
             <li><strong>Author / byline</strong> (15% weight) — looks for named humans ("By Jane Smith") in the snippet; penalizes self-disclosure ("AI-generated").</li>
-            <li><strong>Domain signals</strong> (20% weight) — URL shape (TLD, hyphen slug, date-stamped path), with a small whitelist of known human-publication outlets (NYT, Atlantic, Wired, etc.) that override the score downward.</li>
+            <li><strong>Domain signals</strong> (20% weight) — URL shape (TLD, hyphen slug), plus a curated list of human-edited publications (NYT, Atlantic, Wired, etc.) matched on the parsed hostname, which pulls the score downward.</li>
           </ul>
-          <p><strong>Calibration.</strong> Three sensitivities — Low (only obvious cases, multiplier 0.55), Medium (default, 1.0), High (sensitive, 1.35). The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.</p>
+          <p><strong>Calibration.</strong> Three sensitivities that bend the score curve — Low compresses mid-range scores so only extreme evidence gets flagged, Medium is the default, High stretches scores upward. The default is conservative on purpose: false positives — accusing a real journalist of being AI — are worse than false negatives.</p>
           <p><strong>Hide-above mode.</strong> When you set a hide threshold, results meeting/exceeding that score collapse to a single hover-to-expand line. We don't delete them from the DOM (that would break SERP pagination). Hover any collapsed result to expand it for that moment.</p>
           <p><strong>Per-result dismissal.</strong> Every badge has a "✕" that hides it for that domain. Your dismissed domains persist in chrome.storage.sync and never show the badge again.</p>
           <p><strong>What it will NOT do.</strong> It will not catch lightly-edited AI text. It will not catch a human who happens to write in a corporate / listicle style. It will not give you a definitive "this is AI" answer. Anyone who tells you they can do that from a browser extension is lying.</p>
@@ -388,7 +501,7 @@ function showMethodology(){
         </div>
       </div>`;
     document.body.appendChild(modal);
-    document.getElementById("aiMethodologyClose").addEventListener("click",()=>{
+    $("aiMethodologyClose").addEventListener("click",()=>{
       modal.classList.remove("open");
     });
     modal.addEventListener("click",(e)=>{
@@ -399,8 +512,8 @@ function showMethodology(){
 }
 function renderSettings(){
   const gi=Math.round((state.glassOpacity||.04)*100);
-  document.getElementById("settingsTitle").textContent="Horizon Settings";
-  document.getElementById("settingsBody").innerHTML=`
+  $("settingsTitle").textContent="Horizon Settings";
+  $("settingsBody").innerHTML=`
     <div class="settings-group">
       <label class="settings-label">Theme</label>
       <div class="theme-grid">
@@ -425,6 +538,14 @@ function renderSettings(){
       <div class="glass-slider-row"><span>◻</span><input type="range" class="glass-slider" id="glassSlider" min="0" max="15" value="${gi}"><span>◼</span></div>
     </div>
     <div class="settings-group">
+      <label class="settings-label">Weather Location</label>
+      <p class="settings-hint">US coordinates (National Weather Service). Leave blank for the default.</p>
+      <div style="display:flex;gap:.4rem">
+        <input type="text" class="coord-input" id="weatherLatInput" inputmode="decimal" placeholder="Latitude" value="${state.weatherLat??""}">
+        <input type="text" class="coord-input" id="weatherLonInput" inputmode="decimal" placeholder="Longitude" value="${state.weatherLon??""}">
+      </div>
+    </div>
+    <div class="settings-group">
       <label class="settings-label">Default Search Engine</label>
       <div class="theme-grid">${Object.keys(SE).map(k=>`<button class="engine-btn${state.searchEngine===k?" active":""}" data-engine="${k}">${k.charAt(0).toUpperCase()+k.slice(1)}</button>`).join("")}</div>
     </div>
@@ -440,6 +561,17 @@ function renderSettings(){
           ${state.aiSignal?"✓ Enabled — showing AI % on search results":"○ Off — click to enable"}
         </button>
       </div>
+      <div class="theme-grid" style="grid-template-columns:1fr;margin-top:.35rem">
+        <button class="engine-btn${state.aiPageDetector?" active":""}" id="aiPageDetToggle">
+          ${state.aiPageDetector?"✓ Page detector on — floating score on article pages":"○ Page detector off — click to score pages you visit"}
+        </button>
+      </div>
+      <p class="settings-hint" style="margin-top:.25rem">Optional and off by default. Asks for permission to run on all sites; the text analysis itself stays on-device.</p>
+      <div style="margin-top:.5rem">
+        <label class="settings-label" style="font-size:.7rem;opacity:.75">Safe Browsing key<span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.65"> · optional</span></label>
+        <input type="text" class="coord-input" id="sbKeyInput" placeholder="Enter here" spellcheck="false" autocomplete="off" style="margin-top:.25rem">
+        <p class="settings-hint" style="margin-top:.25rem">If set, the page detector also checks sites against Google Safe Browsing and warns on flagged ones — this sends the hostname to Google. Leave blank to skip entirely. <a href="https://developers.google.com/safe-browsing/v4/get-started" target="_blank" rel="noopener" style="color:var(--accent)">Get a key</a></p>
+      </div>
       ${state.aiSignal?`
         <div style="margin-top:.4rem">
           <label class="settings-label" style="font-size:.7rem;opacity:.75">Sensitivity</label>
@@ -450,9 +582,9 @@ function renderSettings(){
           </div>
         </div>
         <div style="margin-top:.4rem">
-          <label class="settings-label" style="font-size:.7rem;opacity:.75">Hide results above <span id="aiHideVal">${state.aiHideAbove||"\\u2014"}</span>%</label>
+          <label class="settings-label" style="font-size:.7rem;opacity:.75">Auto-hide results: <span id="aiHideVal">${state.aiHideAbove?`≥ ${state.aiHideAbove}%`:"Off"}</span></label>
           <div class="glass-slider-row"><span>off</span><input type="range" class="glass-slider" id="aiHideSlider" min="0" max="95" step="5" value="${state.aiHideAbove}"><span>95%</span></div>
-          <p class="settings-hint" style="margin-top:.25rem">Set to 0 to never hide. Hover a hidden result to expand it.</p>
+          <p class="settings-hint" style="margin-top:.25rem">Results scoring at or above the threshold collapse — hover one to reveal it. Slide left to turn off.</p>
         </div>
         <p class="settings-hint" style="margin-top:.4rem">
           <strong>Heuristic, not a verdict.</strong> False positives are possible — formal human writing can get flagged. Every result can be dismissed (\u2715) per-domain. Read the
@@ -463,40 +595,84 @@ function renderSettings(){
     <div class="settings-group">
       <label class="settings-label">Quick Links</label>
       <div class="custom-links" id="customLinksRendered">
-        ${state.links.map((l,i)=>`<div class="link-editor" data-idx="${i}"><input class="le-emoji" value="${l.emoji||"🌐"}" maxlength="2" placeholder="🌐"><input class="le-label" value="${l.label}" placeholder="Label"><input class="le-url" value="${l.url}" placeholder="https://..."><input class="le-img" value="${l.image||""}" placeholder="Img URL"><button class="link-remove" title="Remove">✕</button></div>`).join("")}
+        ${state.links.map((l,i)=>`<div class="link-editor" data-idx="${i}"><input class="le-emoji" value="${esc(l.emoji||"🌐")}" maxlength="2" placeholder="🌐"><input class="le-label" value="${esc(l.label)}" placeholder="Label"><input class="le-url" value="${esc(l.url)}" placeholder="https://..."><input class="le-img" value="${esc(l.image||"")}" placeholder="Img URL"><button class="link-remove" title="Remove">✕</button></div>`).join("")}
       </div>
       <button class="btn-sm" id="addLinkBtn">+ Add Link</button>
       <button class="btn-sm" id="toggleLinksBtn">${state.showLinks?"✓ Visible":"⊟ Hidden"}</button>
     </div>`;
 
-  const ci=document.getElementById("customBgInput"),ca=document.getElementById("customAccentInput");
+  const ci=$("customBgInput"),ca=$("customAccentInput");
   if(ci&&ca){ci.addEventListener("input",()=>{state.customBg=ci.value;applyCustomTheme()});ca.addEventListener("input",()=>{state.customAccent=ca.value;applyCustomTheme()})}
-  document.getElementById("glassSlider")?.addEventListener("input",e=>applyGlassOpacity(e.target.value/100));
+  $("glassSlider")?.addEventListener("input",e=>applyGlassOpacity(e.target.value/100));
   document.querySelectorAll("#settingsBody .theme-btn").forEach(btn=>{btn.addEventListener("click",()=>{if(state.bg)clearBg();applyTheme(btn.dataset.theme);renderSettings()})});
   document.querySelectorAll("#settingsBody .engine-btn[data-engine]").forEach(btn=>{btn.addEventListener("click",()=>{state.searchEngine=btn.dataset.engine;renderSettings();saveState();refreshUI()})});
   document.querySelectorAll("#settingsBody .engine-btn[data-ai]").forEach(btn=>{btn.addEventListener("click",()=>{state.aiProvider=btn.dataset.ai;renderSettings();saveState();refreshUI()})});
-  document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{const idx=parseInt(ed.dataset.idx);const save=()=>{const newUrl=ed.querySelector(".le-url").value||"https://example.com";const newImg=ed.querySelector(".le-img").value||"";state.links[idx]={...state.links[idx],emoji:ed.querySelector(".le-emoji").value||"🌐",label:ed.querySelector(".le-label").value||"Link",url:newUrl,image:newImg||`https://www.google.com/s2/favicons?domain=${new URL(newUrl).hostname}&sz=64`};saveState();renderLinks()};ed.querySelector(".le-emoji")?.addEventListener("input",save);ed.querySelector(".le-label")?.addEventListener("input",save);ed.querySelector(".le-url")?.addEventListener("input",save);ed.querySelector(".le-img")?.addEventListener("input",save);ed.querySelector(".link-remove")?.addEventListener("click",()=>{state.links.splice(idx,1);saveState();renderLinks();renderSettings()})});
-  document.getElementById("toggleLinksBtn")?.addEventListener("click",()=>{state.showLinks=!state.showLinks;saveState();renderLinks();renderSettings()});
-  document.getElementById("addLinkBtn")?.addEventListener("click",()=>{const newUrl = "https://example.com"; const newDomain = (new URL(newUrl)).hostname; state.links.push({id:`lc${linkId++}`,label:"New Link",url:newUrl,emoji:"",image:`https://www.google.com/s2/favicons?domain=${newDomain}&sz=64`});saveState();renderLinks();renderSettings();document.getElementById("settingsPanel").scrollTop=document.getElementById("settingsPanel").scrollHeight});
-  document.getElementById("uploadBgBtn")?.addEventListener("click",()=>document.getElementById("bgUpload").click());
-  document.getElementById("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings()});
+  document.querySelectorAll("#customLinksRendered .link-editor").forEach(ed=>{const idx=parseInt(ed.dataset.idx);const save=()=>{
+    const newUrl=ed.querySelector(".le-url").value.trim()||"https://example.com";
+    const newImg=ed.querySelector(".le-img").value.trim();
+    let image=newImg;
+    if(!image){
+      // v1 called new URL(newUrl) unguarded — a half-typed URL threw and
+      // killed the whole input handler. Now it just skips the favicon.
+      try{image=`https://www.google.com/s2/favicons?domain=${new URL(safeHref(newUrl)).hostname}&sz=64`}catch{image=""}
+    }
+    state.links[idx]={...state.links[idx],emoji:ed.querySelector(".le-emoji").value||"🌐",label:ed.querySelector(".le-label").value||"Link",url:newUrl,image};
+    saveState();renderLinks()
+  };ed.querySelector(".le-emoji")?.addEventListener("input",save);ed.querySelector(".le-label")?.addEventListener("input",save);ed.querySelector(".le-url")?.addEventListener("input",save);ed.querySelector(".le-img")?.addEventListener("input",save);ed.querySelector(".link-remove")?.addEventListener("click",()=>{state.links.splice(idx,1);saveState();renderLinks();renderSettings()})});
+  $("toggleLinksBtn")?.addEventListener("click",()=>{state.showLinks=!state.showLinks;saveState();renderLinks();renderSettings()});
+  $("addLinkBtn")?.addEventListener("click",()=>{const newUrl = "https://example.com"; const newDomain = (new URL(newUrl)).hostname; state.links.push({id:`lc${linkId++}`,label:"New Link",url:newUrl,emoji:"",image:`https://www.google.com/s2/favicons?domain=${newDomain}&sz=64`});saveState();renderLinks();renderSettings();$("settingsPanel").scrollTop=$("settingsPanel").scrollHeight});
+  $("uploadBgBtn")?.addEventListener("click",()=>$("bgUpload").click());
+  $("clearBgBtn")?.addEventListener("click",()=>{clearBg();renderSettings()});
 
   // AI Signal settings wiring
-  document.getElementById("aiSignalToggle")?.addEventListener("click",()=>{state.aiSignal=!state.aiSignal;saveState();renderSettings()});
+  $("aiSignalToggle")?.addEventListener("click",()=>{state.aiSignal=!state.aiSignal;saveState();renderSettings()});
+  $("aiPageDetToggle")?.addEventListener("click",async()=>{
+    if(!state.aiPageDetector){
+      // Turning ON: ask for the optional <all_urls> permission first.
+      // background.js registers the detector script only when both the
+      // setting and the permission are in place.
+      let granted=false;
+      try{granted=await chrome.permissions.request({origins:["<all_urls>"]})}catch{}
+      if(!granted){renderSettings();return}
+    }
+    state.aiPageDetector=!state.aiPageDetector;
+    saveState();renderSettings();
+  });
+  const sbInput=$("sbKeyInput");
+  if(sbInput){
+    try{chrome.storage.sync.get(["hz_sb_key"],r=>{if(r&&typeof r.hz_sb_key==="string")sbInput.value=r.hz_sb_key})}catch{}
+    sbInput.addEventListener("change",()=>{
+      const v=sbInput.value.trim();
+      try{
+        if(v){const p=chrome.storage.sync.set({hz_sb_key:v});if(p&&p.catch)p.catch(()=>{})}
+        else{const p=chrome.storage.sync.remove("hz_sb_key");if(p&&p.catch)p.catch(()=>{})}
+      }catch{}
+    });
+  }
+  const wla=$("weatherLatInput"),wlo=$("weatherLonInput");
+  if(wla&&wlo){
+    const upd=()=>{
+      const la=parseFloat(wla.value),lo=parseFloat(wlo.value);
+      state.weatherLat=Number.isFinite(la)&&Math.abs(la)<=90?la:null;
+      state.weatherLon=Number.isFinite(lo)&&Math.abs(lo)<=180?lo:null;
+      saveState();fetchWeather();
+    };
+    wla.addEventListener("change",upd);wlo.addEventListener("change",upd);
+  }
   document.querySelectorAll("[data-aisens]").forEach(b=>b.addEventListener("click",()=>{state.aiSensitivity=b.dataset.aisens;saveState();renderSettings()}));
-  document.getElementById("aiHideSlider")?.addEventListener("input",e=>{
+  $("aiHideSlider")?.addEventListener("input",e=>{
     state.aiHideAbove=parseInt(e.target.value,10)||0;
-    document.getElementById("aiHideVal").textContent=state.aiHideAbove||"—";
+    $("aiHideVal").textContent=state.aiHideAbove?`≥ ${state.aiHideAbove}%`:"Off";
     saveState();
   });
-  document.getElementById("aiHowLink")?.addEventListener("click",e=>{
+  $("aiHowLink")?.addEventListener("click",e=>{
     e.preventDefault();
     showMethodology();
   });
 }
 
 /* ── Upload ── */
-document.getElementById("bgUpload").addEventListener("change",e=>{
+$("bgUpload").addEventListener("change",e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=()=>{
@@ -512,24 +688,33 @@ document.getElementById("bgUpload").addEventListener("change",e=>{
 });
 
 document.addEventListener("keydown",e=>{
-  // Cmd+K, /, or similar — focus search
-  if((e.key==="/"||(e.key==="k"&&(e.metaKey||e.ctrlKey)))&&!isDrawerOpen()&&
-     !document.getElementById("settingsPanel").classList.contains("open")){
+  const el=e.target;
+  const typing=el&&(el.tagName==="INPUT"||el.tagName==="TEXTAREA"||el.isContentEditable);
+  const settingsOpen=$("settingsPanel").classList.contains("open");
+
+  // Cmd/Ctrl+K always focuses search; bare "/" only when not typing.
+  // (v1 hijacked "/" and "?" even inside the search box — you couldn't
+  // type a URL path or end a question with "?" without opening settings.)
+  if(((e.key==="/"&&!typing)||(e.key==="k"&&(e.metaKey||e.ctrlKey)))&&!settingsOpen){
     e.preventDefault();
-    document.getElementById("searchInput").focus({preventScroll:true});
+    $("searchInput").focus({preventScroll:true});
     return;
   }
-  if(e.key==="?"&&!isDrawerOpen()&&
-     !document.getElementById("settingsPanel").classList.contains("open")){
+  if(e.key==="?"&&!typing&&!isDrawerOpen()&&!settingsOpen){
     e.preventDefault();
     openSettings();
     return;
   }
-  if(e.key==="Escape"&&document.getElementById("settingsPanel").classList.contains("open"))closeSettings();
+  if(e.key==="Escape"&&$("settingsPanel").classList.contains("open"))closeSettings();
   if(e.key==="Escape"&&isDrawerOpen())closeDrawer();
 
   // Arrow navigation in the drawer grid
   if(isDrawerOpen()&&["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
+    // While the caret is in the search input, Left/Right/Up must keep
+    // moving the caret (v1 preventDefault'd them to switch drawer tabs,
+    // so the text cursor couldn't move at all). Only ArrowDown hands
+    // focus to the drawer.
+    if(document.activeElement===$("searchInput")&&e.key!=="ArrowDown")return;
     e.preventDefault();
     const btns=[...document.querySelectorAll(".drawer-btn")];
     const tabs=[...document.querySelectorAll(".drawer-tab")];
@@ -609,21 +794,12 @@ document.addEventListener("keydown",e=>{
         if(firstBtn)firstBtn.focus();
         else if(btns.length>0)btns[0].focus();
       }
-    }else if(active===document.getElementById("searchInput")){
-      // From input: ArrowDown to tabs, ArrowRight/Left to switch tab
+    }else if(active===$("searchInput")){
+      // From the input, ArrowDown enters the drawer (Left/Right/Up
+      // stay with the text caret and returned early above).
       if(e.key==="ArrowDown"){
         const activeTab=document.querySelector(".drawer-tab.active");
         if(activeTab)activeTab.focus();
-      }else if(e.key==="ArrowRight"){
-        const activeTab=document.querySelector(".drawer-tab.active");
-        const tabs2=[...document.querySelectorAll(".drawer-tab")];
-        const nextTab=tabs2[(tabs2.indexOf(activeTab)+1)%tabs2.length];
-        if(nextTab){nextTab.click();requestAnimationFrame(()=>{const nt=[...document.querySelectorAll(".drawer-tab")];if(nt[(tabs2.indexOf(activeTab)+1)%nt.length])nt[(tabs2.indexOf(activeTab)+1)%nt.length].focus();});}
-      }else if(e.key==="ArrowLeft"){
-        const activeTab=document.querySelector(".drawer-tab.active");
-        const tabs2=[...document.querySelectorAll(".drawer-tab")];
-        const prevTab=tabs2[(tabs2.indexOf(activeTab)-1+tabs2.length)%tabs2.length];
-        if(prevTab){prevTab.click();requestAnimationFrame(()=>{const nt=[...document.querySelectorAll(".drawer-tab")];if(nt[(tabs2.indexOf(activeTab)-1+nt.length)%nt.length])nt[(tabs2.indexOf(activeTab)-1+nt.length)%nt.length].focus();});}
       }
     }
   }
@@ -641,13 +817,14 @@ document.addEventListener("keydown",e=>{
   if(state.bg)applyBg(state.bg);
   else applyTheme(state.theme||"slate");
 
-  updateClock();setInterval(updateClock,1000);
+  scheduleClock();
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)scheduleClock()});
   fetchWeather();setInterval(fetchWeather,1800000);
   renderLinks();
 
   /* ── Search: click row toggles drawer, focus opens it ── */
-  const sec=document.getElementById("searchSection");
-  const input=document.getElementById("searchInput");
+  const sec=$("searchSection");
+  const input=$("searchInput");
 
   // Clicking the search row (anywhere outside input) toggles drawer
   document.querySelector(".search-row").addEventListener("click",e=>{
@@ -657,18 +834,59 @@ document.addEventListener("keydown",e=>{
   });
 
   // Mode tag and arrow both toggle drawer directly
-  document.getElementById("modeTag").addEventListener("click",e=>{
+  $("modeTag").addEventListener("click",e=>{
     e.stopPropagation();
     toggleDrawer();
     if(isDrawerOpen())input.focus();
   });
-  document.getElementById("searchArrow").addEventListener("click",e=>{
+  $("searchArrow").addEventListener("click",e=>{
     e.stopPropagation();
     toggleDrawer();
     if(isDrawerOpen())input.focus();
   });
+  // Focus the input BEFORE attaching the focus→open listener, so a
+  // fresh tab starts focused with the drawer closed. (v1 used the HTML
+  // autofocus attribute, which only worked because it happened to fire
+  // before the async boot attached this listener.)
+  input.focus({preventScroll:true});
   input.addEventListener("focus",openDrawer);
   input.addEventListener("input",tagOnInput);
+
+  // Event delegation for drawer controls — the render functions emit
+  // markup only now, so re-renders never churn listeners, and picking
+  // an engine in the current mode is a cheap class swap instead of an
+  // innerHTML rebuild mid-animation.
+  $("drawerTabbar").addEventListener("click",e=>{
+    const tab=e.target.closest(".drawer-tab");if(!tab)return;
+    e.stopPropagation();
+    const mode=tab.dataset.mode;
+    if(mode==="web"&&isAI()){state.searchType="all";refreshUI()}
+    else if(mode==="ai"&&!isAI()){state.searchType="ai";refreshUI()}
+  });
+  $("drawerGrid").addEventListener("click",e=>{
+    const btn=e.target.closest(".drawer-btn");if(!btn)return;
+    e.stopPropagation();
+    const kind=btn.dataset.kind,key=btn.dataset.key;
+    if((kind==="ai")!==isAI()){ // stale grid from the other mode — full refresh
+      if(kind==="web"){state.searchEngine=key;state.searchType="all"}
+      else{state.aiProvider=key;state.searchType="ai"}
+      refreshUI();return;
+    }
+    if(kind==="web")state.searchEngine=key;else state.aiProvider=key;
+    $("drawerGrid").querySelector(".drawer-btn.active")?.classList.remove("active");
+    btn.classList.add("active");
+    updateModeTag();updatePlaceholder();
+    if(kind==="ai")renderFilterBar(); // the hint line depends on the provider
+    saveState();
+  });
+  $("filterBar").addEventListener("click",e=>{
+    const chip=e.target.closest(".filter-chip");if(!chip)return;
+    e.stopPropagation();
+    if(chip.id==="aiFreeChip")state.aiFreeOn=!state.aiFreeOn;
+    else if(chip.dataset.filter)state.searchType=chip.dataset.filter;
+    else return;
+    renderFilterBar();updatePlaceholder();saveState();
+  });
 
   // Close drawer on outside click.
   // Use pointerdown (not click) so this fires BEFORE the focus
@@ -681,12 +899,12 @@ document.addEventListener("keydown",e=>{
   });
 
   // Form submit
-  document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(input.value.trim())});
+  $("searchForm").addEventListener("submit",e=>{e.preventDefault();submitSearch(input.value.trim())});
 
   renderDrawer();refreshUI();
 
   // Settings
-  document.getElementById("settingsToggle").addEventListener("click",openSettings);
-  document.getElementById("settingsClose").addEventListener("click",closeSettings);
-  document.getElementById("settingsBackdrop").addEventListener("click",closeSettings);
+  $("settingsToggle").addEventListener("click",openSettings);
+  $("settingsClose").addEventListener("click",closeSettings);
+  $("settingsBackdrop").addEventListener("click",closeSettings);
 })();
